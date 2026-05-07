@@ -509,6 +509,7 @@ export type Database = {
           id: string
           notes: string | null
           rpe: number | null
+          started_at: string | null
           student_id: string | null
           tenant_id: string | null
           workout_id: string | null
@@ -519,6 +520,7 @@ export type Database = {
           id?: string
           notes?: string | null
           rpe?: number | null
+          started_at?: string | null
           student_id?: string | null
           tenant_id?: string | null
           workout_id?: string | null
@@ -529,6 +531,7 @@ export type Database = {
           id?: string
           notes?: string | null
           rpe?: number | null
+          started_at?: string | null
           student_id?: string | null
           tenant_id?: string | null
           workout_id?: string | null

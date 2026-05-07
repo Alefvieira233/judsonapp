@@ -282,12 +282,69 @@ export type Database = {
           },
         ]
       }
+      plans: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          cta_label: string | null
+          description: string | null
+          display_order: number | null
+          features: string[] | null
+          highlight: boolean | null
+          id: string
+          name: string
+          price_label: string | null
+          tagline: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          cta_label?: string | null
+          description?: string | null
+          display_order?: number | null
+          features?: string[] | null
+          highlight?: boolean | null
+          id?: string
+          name: string
+          price_label?: string | null
+          tagline?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          cta_label?: string | null
+          description?: string | null
+          display_order?: number | null
+          features?: string[] | null
+          highlight?: boolean | null
+          id?: string
+          name?: string
+          price_label?: string | null
+          tagline?: string | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           active: boolean | null
           avatar_url: string | null
           birthdate: string | null
           created_at: string | null
+          current_plan_id: string | null
           email: string | null
           full_name: string
           goal: string | null
@@ -295,6 +352,7 @@ export type Database = {
           joined_at: string | null
           observations: string | null
           phone: string | null
+          referral_code: string | null
           role: string
           tenant_id: string | null
           updated_at: string | null
@@ -304,6 +362,7 @@ export type Database = {
           avatar_url?: string | null
           birthdate?: string | null
           created_at?: string | null
+          current_plan_id?: string | null
           email?: string | null
           full_name: string
           goal?: string | null
@@ -311,6 +370,7 @@ export type Database = {
           joined_at?: string | null
           observations?: string | null
           phone?: string | null
+          referral_code?: string | null
           role: string
           tenant_id?: string | null
           updated_at?: string | null
@@ -320,6 +380,7 @@ export type Database = {
           avatar_url?: string | null
           birthdate?: string | null
           created_at?: string | null
+          current_plan_id?: string | null
           email?: string | null
           full_name?: string
           goal?: string | null
@@ -327,13 +388,79 @@ export type Database = {
           joined_at?: string | null
           observations?: string | null
           phone?: string | null
+          referral_code?: string | null
           role?: string
           tenant_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
           {
+            foreignKeyName: "profiles_current_plan_id_fkey"
+            columns: ["current_plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "profiles_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      referrals: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          referred_id: string | null
+          referrer_id: string | null
+          reward_label: string | null
+          rewarded_at: string | null
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          referred_id?: string | null
+          referrer_id?: string | null
+          reward_label?: string | null
+          rewarded_at?: string | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          referred_id?: string | null
+          referrer_id?: string | null
+          reward_label?: string | null
+          rewarded_at?: string | null
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "referrals_referred_id_fkey"
+            columns: ["referred_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "referrals_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -616,6 +743,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auth_role: { Args: never; Returns: string }
+      auth_tenant_id: { Args: never; Returns: string }
       consume_invite: {
         Args: {
           p_email: string
@@ -771,3 +900,5 @@ export type CommunityReaction = Tables<"community_reactions">
 export type CommunityComment = Tables<"community_comments">
 export type Testimonial = Tables<"testimonials">
 export type Invite = Tables<"invites">
+export type Plan = Tables<"plans">
+export type Referral = Tables<"referrals">

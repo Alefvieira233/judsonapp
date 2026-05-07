@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const inviteSchema = z.object({
   full_name: z
@@ -123,4 +123,98 @@ export async function updateStudentAction(
   revalidatePath("/students");
   revalidatePath(`/students/${parsed.data.id}`);
   return { ok: true };
+}
+
+const referralSchema = z.object({
+  referrer_id: z.string().uuid(),
+  referred_id: z.string().uuid(),
+});
+
+export async function createReferralAction(
+  input: { referred_id: string; referrer_id: string },
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") {
+    return { ok: false, error: "Sem permissão." };
+  }
+  const parsed = referralSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: "Dados inválidos." };
+  }
+  if (parsed.data.referrer_id === parsed.data.referred_id) {
+    return { ok: false, error: "Aluna não pode indicar a si mesma." };
+  }
+
+  // Use admin client to bypass the read policy when checking own-tenant
+  // membership of both profiles (owner can read tenant via auth_role).
+  const admin = createAdminClient();
+  const { error } = await admin.from("referrals").insert({
+    tenant_id: session.tenant.id,
+    referrer_id: parsed.data.referrer_id,
+    referred_id: parsed.data.referred_id,
+    status: "active",
+  });
+  if (error) {
+    if (error.code === "23505") {
+      return { ok: false, error: "Essa aluna já tem indicação registrada." };
+    }
+    console.error("[students.referral.create]", error);
+    return { ok: false, error: "Não consegui registrar a indicação." };
+  }
+  revalidatePath(`/students/${parsed.data.referred_id}`);
+  revalidatePath(`/students/${parsed.data.referrer_id}`);
+  return { ok: true };
+}
+
+const rewardSchema = z.object({
+  referral_id: z.string().uuid(),
+  reward_label: z
+    .string()
+    .trim()
+    .min(2, "Descreva o bônus.")
+    .max(120),
+});
+
+export async function rewardReferralAction(
+  input: z.infer<typeof rewardSchema>,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") {
+    return { ok: false, error: "Sem permissão." };
+  }
+  const parsed = rewardSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("referrals")
+    .update({
+      status: "rewarded",
+      reward_label: parsed.data.reward_label,
+      rewarded_at: new Date().toISOString(),
+    })
+    .eq("id", parsed.data.referral_id)
+    .eq("tenant_id", session.tenant.id);
+  if (error) {
+    console.error("[students.referral.reward]", error);
+    return { ok: false, error: "Não consegui salvar." };
+  }
+  revalidatePath("/students");
+  return { ok: true };
+}
+
+export async function deleteReferralAction(formData: FormData): Promise<void> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") return;
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+  const supabase = await createClient();
+  await supabase
+    .from("referrals")
+    .delete()
+    .eq("id", id)
+    .eq("tenant_id", session.tenant.id);
+  revalidatePath("/students");
 }

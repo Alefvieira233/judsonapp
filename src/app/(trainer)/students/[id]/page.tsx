@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
 import { EditStudentForm } from "./edit-form";
+import { PlanPicker } from "./plan-picker";
+import { ReferralsBlock } from "./referrals-block";
 
 export const metadata = { title: "Aluna" };
 
@@ -15,6 +17,24 @@ type LogRow = {
   duration_minutes: number | null;
   rpe: number | null;
   workout: { title: string } | null;
+};
+
+type PlanOption = {
+  id: string;
+  name: string;
+  price_label: string | null;
+};
+
+type ReferralFromDb = {
+  id: string;
+  status: string;
+  reward_label: string | null;
+  rewarded_at: string | null;
+  created_at: string | null;
+  referrer_id: string | null;
+  referred_id: string | null;
+  referrer: { id: string; full_name: string } | null;
+  referred: { id: string; full_name: string } | null;
 };
 
 function startOfDay(d: Date): Date {
@@ -63,7 +83,9 @@ export default async function StudentDetailPage({
   const supabase = await createClient();
   const { data: student } = await supabase
     .from("profiles")
-    .select("id, full_name, email, phone, goal, observations, active, joined_at")
+    .select(
+      "id, full_name, email, phone, goal, observations, active, joined_at, current_plan_id, referral_code",
+    )
     .eq("id", id)
     .eq("tenant_id", session.tenant.id)
     .eq("role", "student")
@@ -71,19 +93,55 @@ export default async function StudentDetailPage({
 
   if (!student) notFound();
 
-  const { data: logs } = await supabase
-    .from("workout_logs")
-    .select(
-      `id, completed_at, duration_minutes, rpe,
-       workout:workouts(title)`,
-    )
-    .eq("student_id", id)
-    .not("completed_at", "is", null)
-    .order("completed_at", { ascending: false })
-    .limit(50)
-    .returns<LogRow[]>();
+  const [logsRes, plansRes, referralsRes, candidatesRes] = await Promise.all([
+    supabase
+      .from("workout_logs")
+      .select(
+        `id, completed_at, duration_minutes, rpe,
+         workout:workouts(title)`,
+      )
+      .eq("student_id", id)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(50)
+      .returns<LogRow[]>(),
+    supabase
+      .from("plans")
+      .select("id, name, price_label")
+      .eq("tenant_id", session.tenant.id)
+      .eq("active", true)
+      .order("display_order")
+      .returns<PlanOption[]>(),
+    supabase
+      .from("referrals")
+      .select(
+        `id, status, reward_label, rewarded_at, created_at, referrer_id, referred_id,
+         referrer:profiles!referrals_referrer_id_fkey(id, full_name),
+         referred:profiles!referrals_referred_id_fkey(id, full_name)`,
+      )
+      .eq("tenant_id", session.tenant.id)
+      .or(`referrer_id.eq.${id},referred_id.eq.${id}`)
+      .order("created_at", { ascending: false })
+      .returns<ReferralFromDb[]>(),
+    supabase
+      .from("profiles")
+      .select("id, full_name")
+      .eq("tenant_id", session.tenant.id)
+      .eq("role", "student")
+      .neq("id", id)
+      .order("full_name")
+      .returns<{ id: string; full_name: string }[]>(),
+  ]);
 
-  const completed = logs ?? [];
+  const logs = logsRes.data ?? [];
+  const plans = plansRes.data ?? [];
+  const referralsAll = referralsRes.data ?? [];
+  const candidates = candidatesRes.data ?? [];
+
+  const referredBy = referralsAll.find((r) => r.referred_id === id);
+  const referrerOf = referralsAll.filter((r) => r.referrer_id === id);
+
+  const completed = logs;
   const total = completed.length;
   const totalMinutes = completed.reduce(
     (acc, l) => acc + (l.duration_minutes ?? 0),
@@ -143,6 +201,37 @@ export default async function StudentDetailPage({
           }
         />
       </ul>
+
+      <PlanPicker
+        studentId={student.id}
+        currentPlanId={student.current_plan_id ?? null}
+        plans={plans}
+      />
+
+      <ReferralsBlock
+        studentId={student.id}
+        referredBy={
+          referredBy && referredBy.referrer
+            ? {
+                id: referredBy.id,
+                status: referredBy.status,
+                reward_label: referredBy.reward_label,
+                rewarded_at: referredBy.rewarded_at,
+                created_at: referredBy.created_at,
+                who: referredBy.referrer,
+              }
+            : null
+        }
+        referrerOf={referrerOf.map((r) => ({
+          id: r.id,
+          status: r.status,
+          reward_label: r.reward_label,
+          rewarded_at: r.rewarded_at,
+          created_at: r.created_at,
+          who: r.referred,
+        }))}
+        candidates={candidates}
+      />
 
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-xl">Histórico</h2>

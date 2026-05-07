@@ -41,11 +41,13 @@ export async function updateSession(request: NextRequest) {
     pathname.startsWith("/exercises") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/community") ||
+    pathname.startsWith("/plans") ||
     // Student surface (PT-BR URLs to avoid collisions with trainer routes)
     pathname.startsWith("/home") ||
     pathname.startsWith("/treinos") ||
     pathname.startsWith("/feed") ||
     pathname.startsWith("/perfil") ||
+    pathname.startsWith("/planos") ||
     // Shared post-auth landing
     pathname.startsWith("/welcome");
 

@@ -5,6 +5,7 @@ import {
   MessageCircleIcon,
   BookOpenIcon,
   SettingsIcon,
+  SparklesIcon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,6 +24,7 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export const MORE_ITEMS: NavItem[] = [
+  { href: "/plans",     segment: "plans",     label: "Planos",     icon: SparklesIcon },
   { href: "/exercises", segment: "exercises", label: "Exercícios", icon: BookOpenIcon },
   { href: "/settings",  segment: "settings",  label: "Ajustes",    icon: SettingsIcon },
 ];

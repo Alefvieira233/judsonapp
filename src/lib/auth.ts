@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import type { Profile, Tenant } from "@/types/database";
 
@@ -34,14 +34,18 @@ export async function getCurrentProfile(): Promise<Session | null> {
   if (user.user_metadata?.invite_token) return null;
 
   // First sign-in of the personal trainer: bootstrap the owner profile on the
-  // cliente-zero tenant.
-  const { data: created, error } = await supabase
+  // cliente-zero tenant. Done via service-role client because this is a
+  // privileged operation — the user has no profile yet, so RLS context based
+  // on auth_tenant_id() / auth_role() can't grant them access until the row
+  // exists.
+  const admin = createAdminClient();
+  const { data: created, error } = await admin
     .from("profiles")
     .insert({
       id: user.id,
       tenant_id: tenant.id,
       role: "owner",
-      full_name: user.user_metadata?.full_name ?? tenant.name,
+      full_name: (user.user_metadata?.full_name as string | undefined) ?? tenant.name,
       email: user.email ?? null,
     })
     .select("*")

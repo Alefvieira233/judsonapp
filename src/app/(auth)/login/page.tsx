@@ -34,7 +34,7 @@ export default async function LoginPage({
         <LoginForm next={next} />
 
         <p className="text-center text-xs text-muted-foreground">
-          Aluno? Você recebe um link único do seu personal pra entrar.
+          Aluna? <a href="/aluna/entrar" className="text-foreground underline">Entra por aqui</a> com teu email.
         </p>
       </section>
     </main>

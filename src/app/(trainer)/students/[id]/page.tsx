@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon } from "lucide-react";
+import { ArrowLeftIcon, ClockIcon, FlameIcon, ListChecksIcon } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
@@ -8,6 +8,48 @@ import { getCurrentProfile } from "@/lib/auth";
 import { EditStudentForm } from "./edit-form";
 
 export const metadata = { title: "Aluna" };
+
+type LogRow = {
+  id: string;
+  completed_at: string | null;
+  duration_minutes: number | null;
+  rpe: number | null;
+  workout: { title: string } | null;
+};
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function computeStreak(dates: Date[]): number {
+  if (dates.length === 0) return 0;
+  const today = startOfDay(new Date());
+  const days = new Set(dates.map((d) => startOfDay(d).getTime()));
+  let cursor = today;
+  if (!days.has(cursor.getTime())) {
+    cursor = new Date(cursor.getTime() - 86_400_000);
+    if (!days.has(cursor.getTime())) return 0;
+  }
+  let streak = 0;
+  while (days.has(cursor.getTime())) {
+    streak += 1;
+    cursor = new Date(cursor.getTime() - 86_400_000);
+  }
+  return streak;
+}
+
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  const days = Math.round(
+    (startOfDay(new Date()).getTime() - startOfDay(d).getTime()) / 86_400_000,
+  );
+  if (days === 0) return "hoje";
+  if (days === 1) return "ontem";
+  if (days < 7) return `há ${days} dias`;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+}
 
 export default async function StudentDetailPage({
   params,
@@ -28,6 +70,32 @@ export default async function StudentDetailPage({
     .maybeSingle();
 
   if (!student) notFound();
+
+  const { data: logs } = await supabase
+    .from("workout_logs")
+    .select(
+      `id, completed_at, duration_minutes, rpe,
+       workout:workouts(title)`,
+    )
+    .eq("student_id", id)
+    .not("completed_at", "is", null)
+    .order("completed_at", { ascending: false })
+    .limit(50)
+    .returns<LogRow[]>();
+
+  const completed = logs ?? [];
+  const total = completed.length;
+  const totalMinutes = completed.reduce(
+    (acc, l) => acc + (l.duration_minutes ?? 0),
+    0,
+  );
+  const streak = computeStreak(
+    completed
+      .map((l) => l.completed_at)
+      .filter((v): v is string => !!v)
+      .map((s) => new Date(s)),
+  );
+  const recent = completed.slice(0, 8);
 
   const initial = (Array.from(student.full_name)[0] ?? "?").toUpperCase();
 
@@ -54,6 +122,57 @@ export default async function StudentDetailPage({
         </div>
       </header>
 
+      <ul className="grid grid-cols-3 gap-2">
+        <Stat
+          icon={<ListChecksIcon className="size-4" />}
+          label="Treinos"
+          value={total.toString()}
+        />
+        <Stat
+          icon={<FlameIcon className="size-4" />}
+          label="Streak"
+          value={`${streak} ${streak === 1 ? "dia" : "dias"}`}
+        />
+        <Stat
+          icon={<ClockIcon className="size-4" />}
+          label="Tempo total"
+          value={
+            totalMinutes < 60
+              ? `${totalMinutes}min`
+              : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
+          }
+        />
+      </ul>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="font-display text-xl">Histórico</h2>
+        {recent.length === 0 ? (
+          <p className="rounded-xl border border-dashed border-border bg-card/30 px-4 py-6 text-center text-sm text-muted-foreground">
+            Ainda não concluiu nenhum treino.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {recent.map((log) => (
+              <li
+                key={log.id}
+                className="flex items-center gap-3 rounded-xl border border-border bg-card/30 p-3"
+              >
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="truncate text-sm font-medium leading-tight">
+                    {log.workout?.title ?? "Treino removido"}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">
+                    {log.completed_at ? formatDate(log.completed_at) : ""}
+                    {log.duration_minutes ? ` · ${log.duration_minutes}min` : ""}
+                    {log.rpe ? ` · RPE ${log.rpe}` : ""}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <EditStudentForm
         student={{
           id: student.id,
@@ -64,5 +183,24 @@ export default async function StudentDetailPage({
         }}
       />
     </div>
+  );
+}
+
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <li className="flex flex-col gap-1 rounded-xl border border-border bg-card/40 p-3">
+      <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+        {icon} {label}
+      </span>
+      <span className="font-display text-2xl leading-none">{value}</span>
+    </li>
   );
 }

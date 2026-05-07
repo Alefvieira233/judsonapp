@@ -34,17 +34,20 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isProtected =
+    // Trainer surface
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/students") ||
     pathname.startsWith("/workouts") ||
     pathname.startsWith("/exercises") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/community") ||
-    pathname.startsWith("/welcome") ||
+    // Student surface (PT-BR URLs to avoid collisions with trainer routes)
     pathname.startsWith("/home") ||
-    pathname.startsWith("/workout") ||
-    pathname.startsWith("/history") ||
-    pathname.startsWith("/profile");
+    pathname.startsWith("/treinos") ||
+    pathname.startsWith("/feed") ||
+    pathname.startsWith("/perfil") ||
+    // Shared post-auth landing
+    pathname.startsWith("/welcome");
 
   if (!user && isProtected) {
     const url = request.nextUrl.clone();

@@ -18,8 +18,12 @@ export default async function WelcomePage() {
     .eq("id", user.id)
     .maybeSingle();
 
-  // Owners never see the student welcome screen — bounce them to the panel.
+  // The /welcome route exists as a routing fallback — push every authenticated
+  // user to the surface that matches their role. Students go to the PWA home,
+  // owners go to the trainer panel. This page should not render UI in normal
+  // flows; the redirect always wins.
   if (profile?.role === "owner") redirect("/dashboard");
+  if (profile?.role === "student") redirect("/home");
 
   const tenant = (profile as { tenants?: { name: string; tagline: string | null; brand_color: string | null; brand_color_dark: string | null } } | null)?.tenants ?? null;
 

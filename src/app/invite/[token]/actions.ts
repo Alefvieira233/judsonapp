@@ -49,7 +49,7 @@ export async function requestInviteOtpAction(
 
   const origin = await buildOrigin();
   const redirect = new URL(`${origin}/auth/callback`);
-  redirect.searchParams.set("next", "/welcome");
+  redirect.searchParams.set("next", "/home");
   redirect.searchParams.set("invite", parsed.data.token);
   redirect.searchParams.set("name", parsed.data.full_name);
 

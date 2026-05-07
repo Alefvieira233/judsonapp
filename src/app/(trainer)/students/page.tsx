@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
+import { CreateStudentButton } from "./create-student-button";
 import { InviteButton } from "./invite-button";
 
 export const metadata = { title: "Alunas" };
@@ -49,7 +50,10 @@ export default async function StudentsPage() {
               : `${list.length} aluna${list.length === 1 ? "" : "s"} cadastrada${list.length === 1 ? "" : "s"}.`}
           </p>
         </div>
-        <InviteButton />
+        <div className="flex flex-col gap-2 md:flex-row md:gap-3">
+          <CreateStudentButton />
+          <InviteButton />
+        </div>
       </header>
 
       {list.length === 0 ? <EmptyState /> : <StudentList students={list} />}

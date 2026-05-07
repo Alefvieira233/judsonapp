@@ -205,6 +205,156 @@ export async function rewardReferralAction(
   return { ok: true };
 }
 
+// ── Cadastrar aluna direto (sem precisar do invite link) ────────────────────
+const createStudentSchema = z.object({
+  full_name: z.string().trim().min(2, "Nome muito curto.").max(80),
+  email: z.string().trim().email("Email inválido.").toLowerCase(),
+  phone: z
+    .string()
+    .trim()
+    .max(20)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  goal: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  observations: z
+    .string()
+    .trim()
+    .max(1000)
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+});
+
+export type CreateStudentState =
+  | { ok: true; student_id: string; magic_link_sent: boolean }
+  | { ok: false; error: string }
+  | undefined;
+
+async function buildOriginForOtp(): Promise<string> {
+  const h = await headers();
+  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
+  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+export async function createStudentDirectAction(
+  _prev: CreateStudentState,
+  formData: FormData,
+): Promise<CreateStudentState> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") {
+    return { ok: false, error: "Sem permissão." };
+  }
+  const parsed = createStudentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return { ok: false, error: "Configuração do servidor incompleta." };
+  }
+
+  // 1. Create the auth user via the admin REST endpoint (idempotent: if it
+  //    already exists we surface that to the owner).
+  const authResp = await fetch(`${supabaseUrl}/auth/v1/admin/users`, {
+    method: "POST",
+    headers: {
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: parsed.data.email,
+      email_confirm: true,
+      user_metadata: { full_name: parsed.data.full_name },
+    }),
+  });
+
+  let userId: string | null = null;
+  if (authResp.ok) {
+    const created = (await authResp.json()) as { id: string };
+    userId = created.id;
+  } else {
+    const errBody = (await authResp.json().catch(() => ({}))) as {
+      msg?: string;
+      error_code?: string;
+    };
+    if (errBody.error_code === "email_exists" || authResp.status === 422) {
+      // User already exists. Look up their id via admin search.
+      const lookup = await fetch(
+        `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(parsed.data.email)}`,
+        {
+          headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` },
+        },
+      );
+      if (lookup.ok) {
+        const data = (await lookup.json()) as { users?: Array<{ id: string }> };
+        userId = data.users?.[0]?.id ?? null;
+      }
+      if (!userId) {
+        return { ok: false, error: "Já existe conta com esse email mas não consegui recuperar." };
+      }
+    } else {
+      console.error("[students.createDirect.auth]", errBody);
+      return { ok: false, error: "Não consegui criar a conta de auth." };
+    }
+  }
+
+  // 2. Upsert the profile via admin client (bypasses RLS for setup).
+  const admin = createAdminClient();
+  const { error: profileError } = await admin
+    .from("profiles")
+    .upsert(
+      {
+        id: userId,
+        tenant_id: session.tenant.id,
+        role: "student",
+        full_name: parsed.data.full_name,
+        email: parsed.data.email,
+        phone: parsed.data.phone ?? null,
+        goal: parsed.data.goal ?? null,
+        observations: parsed.data.observations ?? null,
+        active: true,
+      },
+      { onConflict: "id" },
+    );
+  if (profileError) {
+    console.error("[students.createDirect.profile]", profileError);
+    return { ok: false, error: "Conta criada, mas falhou em vincular o perfil." };
+  }
+
+  // 3. Send a magic link so she can log in without password.
+  let magicLinkSent = false;
+  try {
+    const supabase = await createClient();
+    const origin = await buildOriginForOtp();
+    const redirect = new URL(`${origin}/auth/callback`);
+    redirect.searchParams.set("next", "/home");
+    const { error: otpError } = await supabase.auth.signInWithOtp({
+      email: parsed.data.email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: redirect.toString(),
+      },
+    });
+    if (!otpError) magicLinkSent = true;
+    else console.warn("[students.createDirect.magic-link]", otpError);
+  } catch (err) {
+    console.warn("[students.createDirect.magic-link.exception]", err);
+  }
+
+  revalidatePath("/students");
+  revalidatePath("/dashboard");
+
+  return { ok: true, student_id: userId, magic_link_sent: magicLinkSent };
+}
+
 export async function deleteReferralAction(formData: FormData): Promise<void> {
   const session = await getCurrentProfile();
   if (!session || session.profile.role !== "owner") return;

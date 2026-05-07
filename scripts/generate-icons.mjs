@@ -1,6 +1,6 @@
 // Generate PWA PNG icons from public/icons/icon.svg using sharp.
 // Run with: npm run icons
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, mkdir } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import sharp from "sharp";
 

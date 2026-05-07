@@ -18,6 +18,9 @@ export default async function WelcomePage() {
     .eq("id", user.id)
     .maybeSingle();
 
+  // Owners never see the student welcome screen — bounce them to the panel.
+  if (profile?.role === "owner") redirect("/dashboard");
+
   const tenant = (profile as { tenants?: { name: string; tagline: string | null; brand_color: string | null; brand_color_dark: string | null } } | null)?.tenants ?? null;
 
   return (

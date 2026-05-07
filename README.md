@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Judson App
 
-## Getting Started
+PWA branded para o personal trainer Judson Lobato — cliente-zero do futuro SaaS de white-label fitness.
 
-First, run the development server:
+## Stack
+
+Next.js 16 (App Router) · React 19 · TypeScript estrito · Tailwind 4 · Supabase (Postgres + Auth + Storage) · PWA · framer-motion · zod.
+
+## Desenvolvimento
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev          # http://localhost:3000
+npm run lint
+npm run build
+npm run icons        # regenera ícones PWA
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+`.env.local` com:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=https://ymepyisibjraxtrnxpwc.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=…
+SUPABASE_SERVICE_ROLE_KEY=…
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Estrutura
 
-## Learn More
+- `src/app/(auth)/login` — login do personal (email + senha)
+- `src/app/(trainer)` — painel do personal (dashboard, alunas, treinos, exercícios, comunidade, ajustes)
+- `src/app/invite/[token]` — landing pública do convite, dispara magic link
+- `src/app/auth/callback` — Route Handler que troca o `code` OTP por sessão e consome o invite via RPC `consume_invite`
+- `src/app/welcome` — landing pós-onboarding da aluna
+- `src/lib/supabase` — clientes server / browser / middleware
+- `supabase/migrations` — schema versionado em SQL
 
-To learn more about Next.js, take a look at the following resources:
+## Setup operacional
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 1. Aplicar migrations
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Via MCP Supabase (preferido) ou `supabase db push`. As migrations estão em ordem em `supabase/migrations/`.
 
-## Deploy on Vercel
+### 2. Customizar email do magic link
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+A aluna recebe um email do Supabase quando aceita o convite. Por default está em inglês — precisa ser trocado pra PT-BR com a marca Judson antes do beta com pessoas reais.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No dashboard Supabase → **Authentication → Email Templates → Magic Link**:
+
+- **Subject:** `Seu link pra entrar no app do Judson`
+- **Body (HTML):** header com `#DC2626`, copy "Oi! Clica no botão abaixo pra entrar no app do Judson Lobato. O link vale 1 hora.", botão CTA "Entrar no app" com `href="{{ .ConfirmationURL }}"`, footer "Se não foi você, ignora esse email."
+- Manter `{{ .ConfirmationURL }}` como href do CTA — Supabase substitui no envio.
+
+### 3. Site URL e Redirect URLs
+
+No dashboard Supabase → **Authentication → URL Configuration**:
+
+- **Site URL:** `http://localhost:3000` em dev, `https://app.judsonlobato.com.br` em produção
+- **Redirect URLs allowlist:** incluir `http://localhost:3000/auth/callback` e `https://app.judsonlobato.com.br/auth/callback`
+
+### 4. Bootstrap do owner
+
+Criar o usuário do Judson em **Authentication → Users**. No primeiro login em `/login`, `lib/auth.ts` cria o profile com `role=owner` automaticamente.
+
+## Onboarding de aluna (fluxo end-to-end)
+
+1. Owner abre `/students` → clica "Convidar aluna" → opcionalmente preenche nome/email/telefone → gera link.
+2. Owner manda o link no WhatsApp da aluna (botão pronto na UI).
+3. Aluna abre `/invite/<token>`, vê a marca, preenche nome+email → recebe magic link.
+4. Aluna clica no email → cai em `/auth/callback?code=…&invite=…&name=…`.
+5. Callback troca o code por sessão + chama RPC `consume_invite` que atomicamente trava o invite, cria o profile (role=student) e marca `used_at`.
+6. Aluna pousa em `/welcome`.
+
+Erros do RPC (`P0002` not found, `P0003` already used, `P0004` expired) viram redirect pra `/invite/<token>?error=…` com mensagem visível.
+
+## Deploy
+
+A definir na Fase 4 (Vercel + Cloudflare DNS + domínio `app.judsonlobato.com.br`).

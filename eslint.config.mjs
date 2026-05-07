@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored external tooling — not part of the app.
+    "design.md/**",
+    "_init/**",
   ]),
 ]);
 

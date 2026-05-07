@@ -22,7 +22,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { GripVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";

@@ -41,6 +41,11 @@ export function CreatePostSheet() {
     if (state?.ok) {
       toast.success("Post publicado");
       formRef.current?.reset();
+      // The sheet closes as a direct consequence of the action result reaching
+      // the client — there's no upstream callback to hook into when using
+      // useActionState, so the effect is the correct place for this side
+      // effect despite the lint heuristic.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOpen(false);
     }
     if (state?.error) toast.error(state.error);

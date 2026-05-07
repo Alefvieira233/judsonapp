@@ -14,6 +14,7 @@ export default async function TrainerLayout({
 }) {
   const session = await getCurrentProfile();
   if (!session) redirect("/login");
+  if (session.profile.role !== "owner") redirect("/welcome");
 
   const { profile, tenant } = session;
   const userInitial = Array.from(profile.full_name)[0] ?? "?";

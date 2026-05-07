@@ -2,67 +2,58 @@ import { NextResponse, type NextRequest } from "next/server";
 
 import { createClient } from "@/lib/supabase/server";
 
+type PostgrestErrorWithCode = { code?: string | null };
+
+function mapInviteError(code: string | null | undefined): string {
+  switch (code) {
+    case "P0002":
+      return "invite_not_found";
+    case "P0003":
+      return "invite_already_used";
+    case "P0004":
+      return "invite_expired";
+    default:
+      return "invite_failed";
+  }
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/dashboard";
+  const next = url.searchParams.get("next") ?? "/welcome";
   const inviteToken = url.searchParams.get("invite");
-  const fullNameFromInvite = url.searchParams.get("name");
+  const name = url.searchParams.get("name") ?? "";
 
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=missing_code", url.origin));
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error) {
-    console.error("[auth.callback] exchange error", error);
-    return NextResponse.redirect(new URL("/login?error=exchange_failed", url.origin));
+  const { data, error: exchangeError } =
+    await supabase.auth.exchangeCodeForSession(code);
+
+  if (exchangeError || !data?.user) {
+    console.error("[auth.callback] exchangeCodeForSession failed:", exchangeError);
+    const target = inviteToken
+      ? new URL(`/invite/${inviteToken}?error=sign_in_failed`, url.origin)
+      : new URL("/login?error=sign_in_failed", url.origin);
+    return NextResponse.redirect(target);
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.redirect(new URL("/login?error=no_user", url.origin));
-  }
-
-  // Student onboarding via invite link.
   if (inviteToken) {
-    const { data: invite } = await supabase
-      .from("invites")
-      .select("id, tenant_id, used_at, expires_at, full_name")
-      .eq("token", inviteToken)
-      .maybeSingle();
+    const { error: rpcError } = await supabase.rpc("consume_invite", {
+      p_token: inviteToken,
+      p_user_id: data.user.id,
+      p_name: name,
+      p_email: data.user.email ?? "",
+    });
 
-    if (
-      invite &&
-      !invite.used_at &&
-      (!invite.expires_at || new Date(invite.expires_at) > new Date())
-    ) {
-      // Provision the student profile if it does not exist yet.
-      const { data: existing } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (!existing) {
-        await supabase.from("profiles").insert({
-          id: user.id,
-          tenant_id: invite.tenant_id,
-          role: "student",
-          full_name:
-            fullNameFromInvite ?? invite.full_name ?? user.email ?? "Aluna",
-          email: user.email ?? null,
-        });
-      }
-
-      // Mark the invite as used (idempotent).
-      await supabase
-        .from("invites")
-        .update({ used_at: new Date().toISOString() })
-        .eq("id", invite.id);
+    if (rpcError) {
+      const reason = mapInviteError((rpcError as PostgrestErrorWithCode).code);
+      console.error("[auth.callback] consume_invite failed:", rpcError);
+      return NextResponse.redirect(
+        new URL(`/invite/${inviteToken}?error=${reason}`, url.origin),
+      );
     }
   }
 

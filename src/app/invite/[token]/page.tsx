@@ -17,12 +17,24 @@ type InviteWithTenant = {
   tenants: Tenant | null;
 };
 
+const ERROR_COPY: Record<string, string> = {
+  invite_already_used: "Esse link já foi usado. Pede um novo pro Judson.",
+  invite_expired: "Esse link expirou. Pede um novo pro Judson.",
+  invite_not_found: "Não encontrei esse convite.",
+  invite_failed: "Algo deu errado ao validar o convite. Tenta abrir o link de novo.",
+  sign_in_failed: "Não consegui te conectar. Tenta abrir o link do email mais uma vez.",
+};
+
 export default async function InvitePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
   const { token } = await params;
+  const { error: errorCode } = await searchParams;
+  const errorMessage = errorCode ? ERROR_COPY[errorCode] ?? null : null;
 
   const supabase = await createClient();
   const { data: invite } = await supabase
@@ -74,12 +86,22 @@ export default async function InvitePage({
             </p>
           </div>
         ) : (
-          <InviteForm
-            token={invite.token}
-            initialName={invite.full_name ?? ""}
-            initialEmail={invite.email ?? ""}
-            tenantFirstName={tenant.name.split(" ")[0]}
-          />
+          <div className="flex flex-col gap-4">
+            {errorMessage ? (
+              <p
+                role="alert"
+                className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+              >
+                {errorMessage}
+              </p>
+            ) : null}
+            <InviteForm
+              token={invite.token}
+              initialName={invite.full_name ?? ""}
+              initialEmail={invite.email ?? ""}
+              tenantFirstName={tenant.name.split(" ")[0]}
+            />
+          </div>
         )}
       </div>
     </main>

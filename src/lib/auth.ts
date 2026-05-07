@@ -29,7 +29,13 @@ export async function getCurrentProfile(): Promise<{
 
   if (existing) return { profile: existing, tenant };
 
-  // First sign-in: bootstrap the owner profile on the cliente-zero tenant.
+  // Defense in depth: a user that arrived via /invite carries `invite_token` in
+  // user_metadata. Their profile is created by /auth/callback through the
+  // consume_invite RPC. Never auto-provision an invited user as owner.
+  if (user.user_metadata?.invite_token) return null;
+
+  // First sign-in of the personal trainer: bootstrap the owner profile on the
+  // cliente-zero tenant.
   const { data: created, error } = await supabase
     .from("profiles")
     .insert({

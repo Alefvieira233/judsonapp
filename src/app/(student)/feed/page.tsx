@@ -1,7 +1,7 @@
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-import { FeedPostCard, type FeedPost } from "./post-card";
+import { FeedPostCard, type FeedComment, type FeedPost } from "./post-card";
 
 export const metadata = { title: "Comunidade" };
 
@@ -17,6 +17,15 @@ type PostRow = {
 
 type ReactionRow = {
   post_id: string | null;
+};
+
+type CommentRow = {
+  id: string;
+  content: string;
+  created_at: string | null;
+  user_id: string | null;
+  post_id: string | null;
+  author: { full_name: string } | null;
 };
 
 export default async function StudentFeedPage() {
@@ -41,18 +50,44 @@ export default async function StudentFeedPage() {
   const posts = postsData ?? [];
 
   const myReactions = new Set<string>();
+  const commentsByPost = new Map<string, FeedComment[]>();
+
   if (posts.length > 0) {
-    const { data: reactions } = await supabase
-      .from("community_reactions")
-      .select("post_id")
-      .eq("user_id", profile.id)
-      .in(
-        "post_id",
-        posts.map((p) => p.id),
-      )
-      .returns<ReactionRow[]>();
-    for (const r of reactions ?? []) {
+    const postIds = posts.map((p) => p.id);
+
+    const [reactionsRes, commentsRes] = await Promise.all([
+      supabase
+        .from("community_reactions")
+        .select("post_id")
+        .eq("user_id", profile.id)
+        .in("post_id", postIds)
+        .returns<ReactionRow[]>(),
+      supabase
+        .from("community_comments")
+        .select(
+          `id, content, created_at, user_id, post_id,
+           author:profiles!community_comments_user_id_fkey(full_name)`,
+        )
+        .in("post_id", postIds)
+        .order("created_at", { ascending: true })
+        .returns<CommentRow[]>(),
+    ]);
+
+    for (const r of reactionsRes.data ?? []) {
       if (r.post_id) myReactions.add(r.post_id);
+    }
+    for (const c of commentsRes.data ?? []) {
+      if (!c.post_id) continue;
+      const arr = commentsByPost.get(c.post_id) ?? [];
+      arr.push({
+        id: c.id,
+        content: c.content,
+        created_at: c.created_at,
+        user_id: c.user_id,
+        author: c.author,
+        is_mine: c.user_id === profile.id,
+      });
+      commentsByPost.set(c.post_id, arr);
     }
   }
 
@@ -65,6 +100,7 @@ export default async function StudentFeedPage() {
     author: p.author,
     likes: p.likes?.[0]?.count ?? 0,
     i_liked: myReactions.has(p.id),
+    comments: commentsByPost.get(p.id) ?? [],
   }));
 
   return (

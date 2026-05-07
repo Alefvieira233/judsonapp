@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 const otpSchema = z.object({
@@ -29,6 +30,19 @@ export async function requestStudentMagicLinkAction(
   const parsed = otpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  // Rate-limit: 5 magic links per hour per email + 15 per hour per IP.
+  const ip = await clientIp();
+  const HOUR = 60 * 60 * 1000;
+  if (!rateLimit(`student-login:email:${parsed.data.email}`, 5, HOUR).ok) {
+    return {
+      ok: false,
+      error: "Muitas tentativas com esse email. Aguarde uma hora pra tentar de novo.",
+    };
+  }
+  if (!rateLimit(`student-login:ip:${ip}`, 15, HOUR).ok) {
+    return { ok: false, error: "Muitas tentativas. Tenta de novo daqui a pouco." };
   }
 
   const supabase = await createClient();

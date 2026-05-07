@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 const otpSchema = z.object({
@@ -30,6 +31,16 @@ export async function requestInviteOtpAction(
   const parsed = otpSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  // Rate-limit: 5 OTPs per hour per email + 10 per hour per IP.
+  const ip = await clientIp();
+  const HOUR = 60 * 60 * 1000;
+  if (!rateLimit(`invite:email:${parsed.data.email}`, 5, HOUR).ok) {
+    return { ok: false, error: "Muitas tentativas com esse email. Aguarde uma hora." };
+  }
+  if (!rateLimit(`invite:ip:${ip}`, 10, HOUR).ok) {
+    return { ok: false, error: "Muitas tentativas. Tenta de novo daqui a uma hora." };
   }
 
   const supabase = await createClient();

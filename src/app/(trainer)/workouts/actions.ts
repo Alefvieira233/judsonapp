@@ -104,6 +104,68 @@ export async function updateWorkoutAction(
   return { ok: true };
 }
 
+export async function duplicateWorkoutAction(formData: FormData): Promise<void> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") return;
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) return;
+
+  const supabase = await createClient();
+
+  const { data: source } = await supabase
+    .from("workouts")
+    .select("id, title, description, scheduled_days, student_id, active")
+    .eq("id", id)
+    .eq("tenant_id", session.tenant.id)
+    .maybeSingle();
+  if (!source) return;
+
+  const { data: items } = await supabase
+    .from("workout_items")
+    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes")
+    .eq("workout_id", id)
+    .order("position");
+
+  const { data: created, error } = await supabase
+    .from("workouts")
+    .insert({
+      tenant_id: session.tenant.id,
+      student_id: source.student_id,
+      title: `${source.title} (cópia)`,
+      description: source.description,
+      scheduled_days: source.scheduled_days,
+      active: source.active ?? true,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    console.error("[workouts.duplicate.create]", error);
+    return;
+  }
+
+  if (items && items.length > 0) {
+    const { error: itemsError } = await supabase.from("workout_items").insert(
+      items.map((it) => ({
+        workout_id: created.id,
+        exercise_id: it.exercise_id,
+        position: it.position,
+        sets: it.sets,
+        reps: it.reps,
+        rest_seconds: it.rest_seconds,
+        load_suggestion: it.load_suggestion,
+        notes: it.notes,
+      })),
+    );
+    if (itemsError) {
+      console.error("[workouts.duplicate.items]", itemsError);
+    }
+  }
+
+  revalidatePath("/workouts");
+  redirect(`/workouts/${created.id}`);
+}
+
 export async function deleteWorkoutAction(formData: FormData): Promise<void> {
   const session = await getCurrentProfile();
   if (!session || session.profile.role !== "owner") return;

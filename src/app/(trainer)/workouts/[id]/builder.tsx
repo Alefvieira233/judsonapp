@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { CopyIcon, GripVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ import {
 
 import {
   deleteWorkoutAction,
+  duplicateWorkoutAction,
   saveWorkoutItemsAction,
   updateWorkoutAction,
 } from "../actions";
@@ -282,11 +283,17 @@ export function WorkoutBuilder({
         <PlusIcon className="size-4" /> Adicionar exercício
       </button>
 
-      <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 flex justify-end gap-2 rounded-xl border border-border bg-background/90 p-3 backdrop-blur md:bottom-4">
+      <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 flex flex-wrap justify-end gap-2 rounded-xl border border-border bg-background/90 p-3 backdrop-blur md:bottom-4">
         <form action={deleteWorkoutAction}>
           <input type="hidden" name="id" value={workout.id} />
           <Button type="submit" variant="ghost" size="sm">
             <TrashIcon className="size-4" /> Apagar
+          </Button>
+        </form>
+        <form action={duplicateWorkoutAction}>
+          <input type="hidden" name="id" value={workout.id} />
+          <Button type="submit" variant="outline" size="sm">
+            <CopyIcon className="size-4" /> Duplicar
           </Button>
         </form>
         <Button onClick={onSave} disabled={pending} size="lg">

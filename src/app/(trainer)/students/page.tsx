@@ -1,23 +1,11 @@
-import Link from "next/link";
-
-import { Badge } from "@/components/ui/badge";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
 import { CreateStudentButton } from "./create-student-button";
 import { InviteButton } from "./invite-button";
+import { StudentsList, type StudentItem } from "./students-list";
 
 export const metadata = { title: "Alunas" };
-
-type StudentRow = {
-  id: string;
-  full_name: string;
-  email: string | null;
-  phone: string | null;
-  goal: string | null;
-  active: boolean | null;
-  joined_at: string | null;
-};
 
 export default async function StudentsPage() {
   const session = await getCurrentProfile();
@@ -30,7 +18,7 @@ export default async function StudentsPage() {
     .eq("tenant_id", session.tenant.id)
     .eq("role", "student")
     .order("joined_at", { ascending: false })
-    .returns<StudentRow[]>();
+    .returns<StudentItem[]>();
 
   const list = students ?? [];
 
@@ -46,7 +34,7 @@ export default async function StudentsPage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             {list.length === 0
-              ? "Nenhuma aluna ainda. Gera um convite pra começar."
+              ? "Nenhuma aluna ainda. Cadastre direto ou gera um convite."
               : `${list.length} aluna${list.length === 1 ? "" : "s"} cadastrada${list.length === 1 ? "" : "s"}.`}
           </p>
         </div>
@@ -56,7 +44,7 @@ export default async function StudentsPage() {
         </div>
       </header>
 
-      {list.length === 0 ? <EmptyState /> : <StudentList students={list} />}
+      {list.length === 0 ? <EmptyState /> : <StudentsList students={list} />}
     </div>
   );
 }
@@ -69,46 +57,10 @@ function EmptyState() {
       </span>
       <h2 className="font-display text-2xl">Tua primeira aluna</h2>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Toca em <span className="text-foreground">Convidar aluna</span> e manda o
-        link pelo WhatsApp. Ela cadastra o email, recebe um link e entra no app.
+        Toca em <span className="text-foreground">Cadastrar</span> pra criar
+        ela direto, ou em <span className="text-foreground">Convidar</span> pra
+        mandar um link de auto-cadastro pelo WhatsApp.
       </p>
     </div>
-  );
-}
-
-function StudentList({ students }: { students: StudentRow[] }) {
-  return (
-    <ul className="grid gap-3 sm:grid-cols-2">
-      {students.map((s) => {
-        const initial = (Array.from(s.full_name)[0] ?? "?").toUpperCase();
-        return (
-          <li key={s.id}>
-            <Link
-              href={`/students/${s.id}`}
-              className="flex items-center gap-4 rounded-xl border border-border bg-card/40 p-4 transition-colors hover:bg-card"
-            >
-              <span className="grid size-12 shrink-0 place-items-center rounded-full bg-card font-display text-lg text-foreground">
-                {initial}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="truncate font-medium text-foreground">
-                    {s.full_name}
-                  </span>
-                  {s.active === false ? (
-                    <Badge variant="outline" className="text-muted-foreground">
-                      Inativa
-                    </Badge>
-                  ) : null}
-                </div>
-                <span className="truncate text-xs text-muted-foreground">
-                  {s.goal ?? s.email ?? s.phone ?? "Sem dados"}
-                </span>
-              </div>
-            </Link>
-          </li>
-        );
-      })}
-    </ul>
   );
 }

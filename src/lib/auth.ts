@@ -1,6 +1,7 @@
 import "server-only";
 
 import { recordConsent } from "@/lib/consent";
+import { log } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import type { Profile, Tenant } from "@/types/database";
@@ -34,7 +35,10 @@ export async function getCurrentProfile(): Promise<Session | null> {
     .eq("id", user.id)
     .maybeSingle();
 
-  if (existing) return { profile: existing, tenant };
+  if (existing) {
+    await enrichSentryUser(existing, tenant);
+    return { profile: existing, tenant };
+  }
 
   // Defense in depth: a user that arrived via /invite carries `invite_token` in
   // user_metadata. Their profile is created by /auth/callback through the
@@ -61,7 +65,11 @@ export async function getCurrentProfile(): Promise<Session | null> {
     .single();
 
   if (error || !created) {
-    console.error("[auth] failed to provision owner profile:", error);
+    log.error("auth.provisionOwner", error, {
+      scope: "auth",
+      tenantId: tenant.id,
+      userId: user.id,
+    });
     return null;
   }
 
@@ -73,7 +81,26 @@ export async function getCurrentProfile(): Promise<Session | null> {
     context: "owner_login",
   });
 
+  await enrichSentryUser(created, tenant);
   return { profile: created, tenant };
+}
+
+/**
+ * Tag the current Sentry scope with the resolved user + tenant. Lazy-imports
+ * @sentry/nextjs only when a DSN is configured — keeps the import out of the
+ * hot path for cliente-zero / dev. Errors here are swallowed: telemetry must
+ * never break auth.
+ */
+async function enrichSentryUser(profile: Profile, tenant: Tenant): Promise<void> {
+  if (!process.env.SENTRY_DSN && !process.env.NEXT_PUBLIC_SENTRY_DSN) return;
+  try {
+    const Sentry = await import("@sentry/nextjs");
+    Sentry.setUser({ id: profile.id });
+    Sentry.setTag("tenant", tenant.slug);
+    Sentry.setTag("tenantId", tenant.id);
+  } catch {
+    // ignore
+  }
 }
 
 /**

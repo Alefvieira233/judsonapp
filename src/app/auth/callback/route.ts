@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { recordConsent } from "@/lib/consent";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 type PostgrestErrorWithCode = { code?: string | null };
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
 
   if (exchangeError || !data?.user) {
-    console.error("[auth.callback] exchangeCodeForSession failed:", exchangeError);
+    log.error("auth.callback.exchange", exchangeError, { scope: "auth.callback" });
     const target = inviteToken
       ? new URL(`/invite/${inviteToken}?error=sign_in_failed`, url.origin)
       : new URL("/login?error=sign_in_failed", url.origin);
@@ -53,7 +54,7 @@ export async function GET(request: NextRequest) {
 
     if (rpcError) {
       const reason = mapInviteError((rpcError as PostgrestErrorWithCode).code);
-      console.error("[auth.callback] consume_invite failed:", rpcError);
+      log.error("auth.callback.consumeInvite", rpcError, { scope: "auth.callback", reason, userId: data.user.id });
       return NextResponse.redirect(
         new URL(`/invite/${inviteToken}?error=${reason}`, url.origin),
       );

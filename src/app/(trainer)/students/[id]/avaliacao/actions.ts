@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const num = (max: number) =>
@@ -83,7 +84,7 @@ export async function createAssessmentAction(
   });
 
   if (error) {
-    console.error("[assessments.create]", error);
+    log.error("assessments.create", error, { scope: "assessments" });
     return { ok: false, error: "Não consegui salvar." };
   }
 

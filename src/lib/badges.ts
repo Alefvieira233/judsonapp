@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { startOfDay } from "@/lib/dates";
+import { log } from "@/lib/logger";
 import type { Database, Json } from "@/types/database";
 
 export type BadgeKey =
@@ -203,7 +204,7 @@ export async function evaluateBadges({
     .returns<{ badge_key: string }[]>();
 
   if (error) {
-    console.error("[badges.evaluate]", error);
+    log.error("badges.evaluate", error, { scope: "badges" });
     return [];
   }
 

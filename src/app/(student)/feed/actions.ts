@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 // Reactions vocabulary — keep aligned with the icons in post-card.tsx.
@@ -54,7 +55,7 @@ export async function addCommentAction(
     content: parsed.data.content,
   });
   if (error) {
-    console.error("[feed.comment.create]", error);
+    log.error("feed.comment.create", error, { scope: "feed" });
     return { ok: false, error: "Não consegui publicar." };
   }
 
@@ -81,7 +82,7 @@ export async function editCommentAction(
     .update({ content: parsed.data.content })
     .eq("id", parsed.data.comment_id);
   if (error) {
-    console.error("[feed.comment.edit]", error);
+    log.error("feed.comment.edit", error, { scope: "feed" });
     return { ok: false, error: "Não consegui editar." };
   }
   revalidatePath("/feed");
@@ -102,7 +103,7 @@ export async function deleteCommentAction(
   // RLS allows owner OR author to delete (community_comments_self_delete).
   const { error } = await supabase.from("community_comments").delete().eq("id", id);
   if (error) {
-    console.error("[feed.comment.delete]", error);
+    log.error("feed.comment.delete", error, { scope: "feed" });
     return { ok: false, error: "Não consegui apagar." };
   }
   revalidatePath("/feed");
@@ -150,7 +151,7 @@ export async function toggleReactionAction(
       .eq("post_id", parsed.data.post_id)
       .eq("user_id", session.profile.id);
     if (error) {
-      console.error("[feed.react.delete]", error);
+      log.error("feed.react.delete", error, { scope: "feed" });
       return { ok: false, reacted: false, error: "Não consegui salvar." };
     }
     if (existingSame) {
@@ -167,7 +168,7 @@ export async function toggleReactionAction(
     reaction: parsed.data.reaction,
   });
   if (error) {
-    console.error("[feed.react.insert]", error);
+    log.error("feed.react.insert", error, { scope: "feed" });
     return { ok: false, reacted: false, error: "Não consegui salvar." };
   }
   revalidatePath("/feed");

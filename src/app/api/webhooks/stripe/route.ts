@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { log } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
 import {
   type StripeEvent,
@@ -47,7 +48,7 @@ function tenantIdFromMetadata(
 export async function POST(req: NextRequest) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
-    console.error("[stripe.webhook] STRIPE_WEBHOOK_SECRET not configured");
+    log.error("stripe.webhook", new Error("STRIPE_WEBHOOK_SECRET not configured"), { scope: "stripe.webhook" });
     return NextResponse.json({ error: "not configured" }, { status: 503 });
   }
 
@@ -77,9 +78,18 @@ export async function POST(req: NextRequest) {
     if (idemErr.code === "23505") {
       return NextResponse.json({ ok: true, idempotent: true });
     }
-    console.error("[stripe.webhook] event insert failed:", idemErr);
+    log.error("stripe.webhook.eventInsert", idemErr, { scope: "stripe.webhook", eventId: event.id, type: event.type });
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
   }
+
+  // Audit trail of every Stripe event we processed (post-idempotency).
+  // Vercel Logs picks this up as JSON; queries like `event:checkout.session.completed`
+  // become trivial. Keep it info-level — it's signal, not noise.
+  log.info("stripe.webhook", {
+    scope: "stripe.webhook",
+    event: event.type,
+    eventId: event.id,
+  });
 
   try {
     switch (event.type) {
@@ -95,7 +105,7 @@ export async function POST(req: NextRequest) {
         const tenantId =
           obj.client_reference_id ?? tenantIdFromMetadata(obj) ?? null;
         if (!tenantId) {
-          console.error("[stripe.webhook] checkout missing tenant_id");
+          log.error("stripe.webhook.checkout.missingTenant", new Error("missing tenant_id"), { scope: "stripe.webhook", eventId: event.id, sessionId: obj.id });
           break;
         }
 
@@ -130,7 +140,7 @@ export async function POST(req: NextRequest) {
             options: { redirectTo: `${siteUrl}/auth/callback?next=/dashboard` },
           });
           if (mlErr) {
-            console.error("[stripe.webhook] magic link error:", mlErr);
+            log.error("stripe.webhook.magicLink", mlErr, { scope: "stripe.webhook", tenantId, email: obj.customer_email });
           }
         }
         break;
@@ -208,7 +218,7 @@ export async function POST(req: NextRequest) {
         break;
     }
   } catch (err) {
-    console.error("[stripe.webhook] handler failed:", err);
+    log.error("stripe.webhook.handler", err, { scope: "stripe.webhook", eventId: event.id, type: event.type });
     return NextResponse.json({ error: "handler failed" }, { status: 500 });
   }
 

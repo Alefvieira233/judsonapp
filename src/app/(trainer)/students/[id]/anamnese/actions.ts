@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const reviewSchema = z.object({
@@ -28,7 +29,7 @@ export async function markAnamneseReviewedAction(
     .eq("student_id", parsed.data.student_id);
 
   if (error) {
-    console.error("[anamnese.review]", error);
+    log.error("anamnese.review", error, { scope: "anamnese" });
     return { ok: false, error: "Não consegui marcar." };
   }
   revalidatePath(`/students/${parsed.data.student_id}`);

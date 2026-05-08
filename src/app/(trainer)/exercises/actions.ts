@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 function detectVideoSource(url: string): "youtube" | "instagram" | "other" {
@@ -78,13 +79,13 @@ export async function saveExerciseAction(
       .eq("tenant_id", session.tenant.id);
 
     if (error) {
-      console.error("[exercises.update]", error);
+      log.error("exercises.update", error, { scope: "exercises" });
       return { error: "Não consegui salvar. Tenta de novo." };
     }
   } else {
     const { error } = await supabase.from("exercises").insert(payload);
     if (error) {
-      console.error("[exercises.create]", error);
+      log.error("exercises.create", error, { scope: "exercises" });
       return { error: "Não consegui criar. Tenta de novo." };
     }
   }
@@ -107,6 +108,6 @@ export async function deleteExerciseAction(formData: FormData): Promise<void> {
     .eq("id", id)
     .eq("tenant_id", session.tenant.id);
 
-  if (error) console.error("[exercises.delete]", error);
+  if (error) log.error("exercises.delete", error, { scope: "exercises" });
   revalidatePath("/exercises");
 }

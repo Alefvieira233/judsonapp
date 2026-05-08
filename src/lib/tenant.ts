@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
 
+import { log } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { Tenant } from "@/types/database";
 
@@ -27,7 +28,7 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
     .maybeSingle();
 
   if (error) {
-    console.error("[tenant] getTenantBySlug error:", error);
+    log.error("tenant.getTenantBySlug", error, { scope: "tenant", slug });
     return null;
   }
   return data;
@@ -45,7 +46,7 @@ const getTenantByHostCached = unstable_cache(
     );
 
     if (rpcError) {
-      console.error("[tenant] resolve_tenant_by_host error:", rpcError);
+      log.error("tenant.resolveByHost", rpcError, { scope: "tenant", host });
       return null;
     }
     if (!tenantId) return null;
@@ -57,7 +58,7 @@ const getTenantByHostCached = unstable_cache(
       .maybeSingle();
 
     if (error) {
-      console.error("[tenant] tenant fetch error:", error);
+      log.error("tenant.fetch", error, { scope: "tenant", tenantId });
       return null;
     }
     return tenant;

@@ -12,6 +12,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "react-jsx",
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
     "incremental": true,
     "plugins": [
       {
@@ -30,5 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules", "design.md", "supabase"]
+  "exclude": ["node_modules", "design.md", "supabase", "e2e", "playwright.config.ts"]
 }

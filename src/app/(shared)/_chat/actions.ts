@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const uuid = z.string().uuid();
@@ -48,7 +49,7 @@ async function ensureThreadForStudent(
     .select("id")
     .single();
   if (error || !created) {
-    console.error("[chat.thread.create]", error);
+    log.error("chat.thread.create", error, { scope: "chat" });
     return null;
   }
   return created;
@@ -100,7 +101,7 @@ export async function sendMessageAction(
     content: parsed.data.content,
   });
   if (insertError) {
-    console.error("[chat.message.insert]", insertError);
+    log.error("chat.message.insert", insertError, { scope: "chat" });
     return { ok: false, error: "Não consegui enviar." };
   }
 
@@ -109,7 +110,7 @@ export async function sendMessageAction(
     .update({ last_message_at: new Date().toISOString() })
     .eq("id", threadId);
   if (updateError) {
-    console.error("[chat.thread.touch]", updateError);
+    log.error("chat.thread.touch", updateError, { scope: "chat" });
   }
 
   revalidatePath("/perfil/chat");
@@ -144,7 +145,7 @@ export async function markThreadReadAction(
     .neq("sender_id", session.profile.id)
     .is("read_at", null);
   if (error) {
-    console.error("[chat.mark_read]", error);
+    log.error("chat.mark_read", error, { scope: "chat" });
     return { ok: false, error: "Não consegui marcar como lido." };
   }
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { log } from "@/lib/logger";
 import type { Database } from "@/types/database";
 
 /**
@@ -131,7 +132,7 @@ export async function computeStrengthScoreByMuscle({
   };
 
   if (error || !data) {
-    if (error) console.error("[strength-score]", error);
+    if (error) log.error("strength-score", error, { scope: "strength-score" });
     return empty;
   }
 

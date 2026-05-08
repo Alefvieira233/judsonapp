@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const updateSchema = z.object({
@@ -63,7 +64,7 @@ export async function updateStudentProfileAction(
     .eq("role", "student");
 
   if (error) {
-    console.error("[perfil.update]", error);
+    log.error("perfil.update", error, { scope: "perfil" });
     return { ok: false, error: "Não consegui salvar. Tenta de novo." };
   }
 
@@ -118,7 +119,7 @@ export async function uploadAvatarAction(
       cacheControl: "no-cache",
     });
   if (uploadErr) {
-    console.error("[perfil.uploadAvatar] storage:", uploadErr);
+    log.error("perfil.uploadAvatar.storage", uploadErr, { scope: "perfil" });
     return { ok: false, error: "Não consegui salvar a foto. Tenta de novo." };
   }
 
@@ -130,7 +131,7 @@ export async function uploadAvatarAction(
     .update({ avatar_url: versioned })
     .eq("id", session.profile.id);
   if (updErr) {
-    console.error("[perfil.uploadAvatar] profile:", updErr);
+    log.error("perfil.uploadAvatar.profile", updErr, { scope: "perfil" });
     return { ok: false, error: "Foto enviada, mas não consegui atualizar o perfil." };
   }
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { logAction } from "@/lib/audit";
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { rateLimitAsync } from "@/lib/rate-limit";
 import {
   cancelSubscriptionAtPeriodEnd,
@@ -52,7 +53,7 @@ export async function openBillingPortalAction(): Promise<PortalState> {
     });
     return { redirectTo: portal.url };
   } catch (err) {
-    console.error("[settings.billing] portal", err);
+    log.error("settings.billing.portal", err, { scope: "settings.billing" });
     return { error: "Não conseguimos abrir o portal." };
   }
 }
@@ -91,7 +92,7 @@ export async function cancelSubscriptionAction(
   try {
     await cancelSubscriptionAtPeriodEnd(sub.stripe_subscription_id);
   } catch (err) {
-    console.error("[settings.billing] cancel", err);
+    log.error("settings.billing.cancel", err, { scope: "settings.billing" });
     return { error: "Falha no cancelamento." };
   }
 

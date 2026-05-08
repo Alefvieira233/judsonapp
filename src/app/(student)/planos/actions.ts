@@ -13,6 +13,7 @@ import {
   type AsaasCycle,
 } from "@/lib/asaas";
 import { getCurrentStudent } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { rateLimitAsync } from "@/lib/rate-limit";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
@@ -114,7 +115,7 @@ export async function subscribeToPlanAction(
         .update({ asaas_customer_id: customerId })
         .eq("id", profile.id);
     } catch (err) {
-      console.error("[asaas.createCustomer]", err);
+      log.error("asaas.createCustomer", err, { scope: "planos" });
       return { ok: false, error: "Falha ao registrar pagamento. Tenta de novo." };
     }
   }
@@ -131,7 +132,7 @@ export async function subscribeToPlanAction(
       externalReference: profile.id,
     });
   } catch (err) {
-    console.error("[asaas.createSubscription]", err);
+    log.error("asaas.createSubscription", err, { scope: "planos" });
     return { ok: false, error: "Falha ao criar assinatura. Tenta de novo." };
   }
 
@@ -158,11 +159,11 @@ export async function subscribeToPlanAction(
     // Fail-safe: a assinatura foi criada no Asaas mas não conseguimos
     // espelhar. Cancela lá pra não cobrar a aluna por algo que nem aparece
     // no painel.
-    console.error("[subscriptions.insert]", insertErr);
+    log.error("planos.subscriptions.insert", insertErr, { scope: "planos" });
     try {
       await asaasCancelSubscription(asaasSub.id);
     } catch (cancelErr) {
-      console.error("[asaas.cancel.rollback]", cancelErr);
+      log.error("asaas.cancel.rollback", cancelErr, { scope: "planos" });
     }
     return { ok: false, error: "Falha ao salvar assinatura. Tenta de novo." };
   }
@@ -173,7 +174,7 @@ export async function subscribeToPlanAction(
     const payment = await getFirstPayment(asaasSub.id);
     checkoutUrl = payment?.invoiceUrl ?? payment?.bankSlipUrl ?? null;
   } catch (err) {
-    console.error("[asaas.getFirstPayment]", err);
+    log.error("asaas.getFirstPayment", err, { scope: "planos" });
   }
 
   if (!checkoutUrl) {

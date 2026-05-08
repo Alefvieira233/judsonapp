@@ -5,6 +5,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 import { logAction } from "@/lib/audit";
+import { log } from "@/lib/logger";
 import { clientIp, rateLimitAsync } from "@/lib/rate-limit";
 import {
   createCheckoutSessionForTenant,
@@ -93,7 +94,7 @@ export async function createTenantAction(
     .single();
 
   if (insertErr || !created) {
-    console.error("[createTenant] insert", insertErr);
+    log.error("createTenant.insert", insertErr, { scope: "createTenant" });
     return { error: "Não conseguimos criar a conta. Tenta de novo." };
   }
 
@@ -124,7 +125,7 @@ export async function createTenantAction(
       email: data.email,
       options: { redirectTo: `${siteUrl}/auth/callback?next=/dashboard` },
     });
-    if (mlErr) console.error("[createTenant] magic link", mlErr);
+    if (mlErr) log.error("createTenant.magicLink", mlErr, { scope: "createTenant" });
     redirect(`/criar-conta-personal/sucesso?slug=${created.slug}&trial=1`);
   }
 
@@ -151,7 +152,7 @@ export async function createTenantAction(
       .update({ stripe_customer_id: customer.id })
       .eq("tenant_id", created.id);
   } catch (err) {
-    console.error("[createTenant] stripe customer", err);
+    log.error("createTenant.stripeCustomer", err, { scope: "createTenant" });
   }
 
   let checkoutUrl: string | null = null;
@@ -167,7 +168,7 @@ export async function createTenantAction(
     });
     checkoutUrl = session.url;
   } catch (err) {
-    console.error("[createTenant] stripe checkout", err);
+    log.error("createTenant.stripeCheckout", err, { scope: "createTenant" });
     return { error: "Falha no checkout. Tenta de novo." };
   }
 

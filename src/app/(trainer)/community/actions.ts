@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const createSchema = z.object({
@@ -55,7 +56,7 @@ export async function createPostAction(
   });
 
   if (error) {
-    console.error("[community.create]", error);
+    log.error("community.create", error, { scope: "community" });
     return { error: "Não consegui publicar. Tenta de novo." };
   }
 
@@ -110,7 +111,7 @@ export async function editPostAction(
     .eq("tenant_id", session.tenant.id);
 
   if (error) {
-    console.error("[community.edit]", error);
+    log.error("community.edit", error, { scope: "community" });
     return { ok: false, error: "Não consegui salvar." };
   }
 

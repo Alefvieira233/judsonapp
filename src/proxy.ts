@@ -96,8 +96,17 @@ export async function proxy(request: NextRequest) {
     "base64",
   );
 
+  // Request ID — preserve if upstream (Vercel injects one), otherwise mint
+  // a fresh UUID. We only echo it in the response header; consumers can
+  // correlate logs by reading `x-request-id` on the request side themselves.
+  const requestId =
+    request.headers.get("x-request-id") ??
+    request.headers.get("x-vercel-id") ??
+    crypto.randomUUID();
+
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("x-request-id", requestId);
 
   const sessionResponse = await updateSession(request);
 
@@ -131,6 +140,7 @@ export async function proxy(request: NextRequest) {
 
   response.headers.set(cspHeader, csp);
   response.headers.set("x-nonce", nonce);
+  response.headers.set("x-request-id", requestId);
 
   return response;
 }

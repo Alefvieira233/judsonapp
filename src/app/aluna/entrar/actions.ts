@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 
+import { log } from "@/lib/logger";
 import { clientIp, rateLimitAsync } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -62,7 +63,7 @@ export async function requestStudentMagicLinkAction(
 
   if (error) {
     // Generic message — don't leak whether the email exists.
-    console.error("[aluna.entrar.signInWithOtp]", error);
+    log.error("aluna.entrar.signInWithOtp", error, { scope: "aluna.entrar" });
     return {
       ok: false,
       error: "Não consegui mandar o email. Confere se é o mesmo que tu usou no convite.",

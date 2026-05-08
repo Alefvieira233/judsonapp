@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const yesNoOptional = z
@@ -83,7 +84,7 @@ export async function saveAnamneseAction(
     );
 
   if (error) {
-    console.error("[anamnese.save]", error);
+    log.error("anamnese.save", error, { scope: "anamnese" });
     return { ok: false, error: "Não consegui salvar." };
   }
 

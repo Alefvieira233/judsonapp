@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const inviteSchema = z.object({
@@ -69,7 +70,7 @@ export async function createInviteAction(
     .single();
 
   if (error || !data) {
-    console.error("[students.createInvite]", error);
+    log.error("students.createInvite", error, { scope: "students" });
     return { ok: false, error: "Não consegui gerar o convite. Tenta de novo." };
   }
 
@@ -116,7 +117,7 @@ export async function updateStudentAction(
     .eq("role", "student");
 
   if (error) {
-    console.error("[students.update]", error);
+    log.error("students.update", error, { scope: "students" });
     return { error: "Não consegui salvar. Tenta de novo." };
   }
 
@@ -158,7 +159,7 @@ export async function createReferralAction(
     if (error.code === "23505") {
       return { ok: false, error: "Essa aluna já tem indicação registrada." };
     }
-    console.error("[students.referral.create]", error);
+    log.error("students.referral.create", error, { scope: "students" });
     return { ok: false, error: "Não consegui registrar a indicação." };
   }
   revalidatePath(`/students/${parsed.data.referred_id}`);
@@ -198,7 +199,7 @@ export async function rewardReferralAction(
     .eq("id", parsed.data.referral_id)
     .eq("tenant_id", session.tenant.id);
   if (error) {
-    console.error("[students.referral.reward]", error);
+    log.error("students.referral.reward", error, { scope: "students" });
     return { ok: false, error: "Não consegui salvar." };
   }
   revalidatePath("/students");
@@ -301,7 +302,7 @@ export async function createStudentDirectAction(
         return { ok: false, error: "Já existe conta com esse email mas não consegui recuperar." };
       }
     } else {
-      console.error("[students.createDirect.auth]", errBody);
+      log.error("students.createDirect.auth", errBody, { scope: "students" });
       return { ok: false, error: "Não consegui criar a conta de auth." };
     }
   }
@@ -325,7 +326,7 @@ export async function createStudentDirectAction(
       { onConflict: "id" },
     );
   if (profileError) {
-    console.error("[students.createDirect.profile]", profileError);
+    log.error("students.createDirect.profile", profileError, { scope: "students" });
     return { ok: false, error: "Conta criada, mas falhou em vincular o perfil." };
   }
 

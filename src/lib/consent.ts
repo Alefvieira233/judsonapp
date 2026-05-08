@@ -2,6 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+import { log } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
 import { clientIp } from "@/lib/rate-limit";
 
@@ -46,6 +47,10 @@ export async function recordConsent({
   });
 
   if (error) {
-    console.error("[consent.record] failed:", error);
+    log.error("consent.record", error, {
+      scope: "consent",
+      userId,
+      tenantId: tenantId ?? undefined,
+    });
   }
 }

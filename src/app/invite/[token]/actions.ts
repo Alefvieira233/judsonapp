@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 
+import { log } from "@/lib/logger";
 import { clientIp, rateLimitAsync } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
@@ -85,7 +86,7 @@ export async function requestInviteOtpAction(
   });
 
   if (error) {
-    console.error("[invite.signInWithOtp]", error);
+    log.error("invite.signInWithOtp", error, { scope: "invite" });
     return { ok: false, error: "Não consegui mandar o email. Tenta de novo." };
   }
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
 import { type BadgeDef, evaluateBadges } from "@/lib/badges";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const startSchema = z.object({
@@ -56,7 +57,7 @@ export async function startWorkoutAction(
     .single();
 
   if (error || !data) {
-    console.error("[treinos.start]", error);
+    log.error("treinos.start", error, { scope: "treinos" });
     return { ok: false, error: "Não consegui iniciar. Tenta de novo." };
   }
 
@@ -85,15 +86,15 @@ export async function logSetAction(
   const supabase = await createClient();
 
   // Verify the workout_log belongs to this student before logging.
-  const { data: log } = await supabase
+  const { data: workoutLog } = await supabase
     .from("workout_logs")
     .select("id, tenant_id, student_id, completed_at")
     .eq("id", parsed.data.workout_log_id)
     .maybeSingle();
-  if (!log || log.tenant_id !== session.tenant.id || log.student_id !== session.profile.id) {
+  if (!workoutLog || workoutLog.tenant_id !== session.tenant.id || workoutLog.student_id !== session.profile.id) {
     return { ok: false, error: "Sem permissão." };
   }
-  if (log.completed_at) {
+  if (workoutLog.completed_at) {
     return { ok: false, error: "Esse treino já foi concluído." };
   }
 
@@ -116,7 +117,7 @@ export async function logSetAction(
       })
       .eq("id", existing.id);
     if (error) {
-      console.error("[treinos.logSet.update]", error);
+      log.error("treinos.logSet.update", error, { scope: "treinos" });
       return { ok: false, error: "Não consegui salvar a série." };
     }
   } else {
@@ -128,7 +129,7 @@ export async function logSetAction(
       load_kg: parsed.data.load_kg,
     });
     if (error) {
-      console.error("[treinos.logSet.insert]", error);
+      log.error("treinos.logSet.insert", error, { scope: "treinos" });
       return { ok: false, error: "Não consegui salvar a série." };
     }
   }
@@ -160,12 +161,12 @@ export async function completeWorkoutAction(
 
   const supabase = await createClient();
 
-  const { data: log } = await supabase
+  const { data: workoutLog } = await supabase
     .from("workout_logs")
     .select("id, tenant_id, student_id")
     .eq("id", parsed.data.workout_log_id)
     .maybeSingle();
-  if (!log || log.tenant_id !== session.tenant.id || log.student_id !== session.profile.id) {
+  if (!workoutLog || workoutLog.tenant_id !== session.tenant.id || workoutLog.student_id !== session.profile.id) {
     return { ok: false, error: "Sem permissão." };
   }
 
@@ -180,7 +181,7 @@ export async function completeWorkoutAction(
     .eq("id", parsed.data.workout_log_id);
 
   if (error) {
-    console.error("[treinos.complete]", error);
+    log.error("treinos.complete", error, { scope: "treinos" });
     return { ok: false, error: "Não consegui concluir. Tenta de novo." };
   }
 
@@ -194,7 +195,7 @@ export async function completeWorkoutAction(
     joinedAt: session.profile.joined_at ? new Date(session.profile.joined_at) : null,
     supabase,
   }).catch((err) => {
-    console.error("[treinos.complete.badges]", err);
+    log.error("treinos.complete.badges", err, { scope: "treinos" });
     return [] as BadgeDef[];
   });
 
@@ -224,15 +225,15 @@ export async function cancelWorkoutAction(
   if (!parsed.success) return { ok: false, error: "Dados inválidos." };
 
   const supabase = await createClient();
-  const { data: log } = await supabase
+  const { data: workoutLog } = await supabase
     .from("workout_logs")
     .select("id, tenant_id, student_id, completed_at")
     .eq("id", parsed.data.workout_log_id)
     .maybeSingle();
-  if (!log || log.tenant_id !== session.tenant.id || log.student_id !== session.profile.id) {
+  if (!workoutLog || workoutLog.tenant_id !== session.tenant.id || workoutLog.student_id !== session.profile.id) {
     return { ok: false, error: "Sem permissão." };
   }
-  if (log.completed_at) {
+  if (workoutLog.completed_at) {
     return { ok: false, error: "Esse treino já foi concluído." };
   }
 
@@ -244,7 +245,7 @@ export async function cancelWorkoutAction(
     .delete()
     .eq("id", parsed.data.workout_log_id);
   if (error) {
-    console.error("[treinos.cancel]", error);
+    log.error("treinos.cancel", error, { scope: "treinos" });
     return { ok: false, error: "Não consegui cancelar." };
   }
 

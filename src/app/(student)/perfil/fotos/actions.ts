@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -87,7 +88,7 @@ export async function uploadProgressPhotoAction(
       cacheControl: "private, max-age=3600",
     });
   if (uploadErr) {
-    console.error("[progress_photos.upload] storage:", uploadErr);
+    log.error("progress_photos.upload.storage", uploadErr, { scope: "progress_photos" });
     return { ok: false, error: "Não consegui salvar a foto. Tenta de novo." };
   }
 
@@ -104,7 +105,7 @@ export async function uploadProgressPhotoAction(
     // Roll back the orphan storage object so we don't leak bytes when DB
     // insert fails (e.g. RLS edge cases or transient errors).
     await admin.storage.from("progress-photos").remove([path]);
-    console.error("[progress_photos.upload] insert:", insertErr);
+    log.error("progress_photos.upload.insert", insertErr, { scope: "progress_photos" });
     return { ok: false, error: "Não consegui registrar a foto." };
   }
 
@@ -138,7 +139,7 @@ export async function deleteProgressPhotoAction(
     .delete()
     .eq("id", id);
   if (delErr) {
-    console.error("[progress_photos.delete] db:", delErr);
+    log.error("progress_photos.delete.db", delErr, { scope: "progress_photos" });
     return;
   }
 
@@ -147,7 +148,7 @@ export async function deleteProgressPhotoAction(
     .from("progress-photos")
     .remove([row.storage_path]);
   if (rmErr) {
-    console.error("[progress_photos.delete] storage:", rmErr);
+    log.error("progress_photos.delete.storage", rmErr, { scope: "progress_photos" });
   }
 
   revalidatePath("/perfil");

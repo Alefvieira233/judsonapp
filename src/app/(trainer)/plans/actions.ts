@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const planSchema = z.object({
@@ -57,7 +58,7 @@ export async function createPlanAction(
     active: parsed.data.active === "on",
   });
   if (error) {
-    console.error("[plans.create]", error);
+    log.error("plans.create", error, { scope: "plans" });
     return { error: "Não consegui criar. Tenta de novo." };
   }
   revalidatePath("/plans");
@@ -95,7 +96,7 @@ export async function updatePlanAction(
     .eq("id", id)
     .eq("tenant_id", session.tenant.id);
   if (error) {
-    console.error("[plans.update]", error);
+    log.error("plans.update", error, { scope: "plans" });
     return { error: "Não consegui salvar. Tenta de novo." };
   }
   revalidatePath("/plans");
@@ -145,7 +146,7 @@ export async function assignPlanToStudentAction(
     .eq("tenant_id", session.tenant.id)
     .eq("role", "student");
   if (error) {
-    console.error("[plans.assign]", error);
+    log.error("plans.assign", error, { scope: "plans" });
     return { ok: false, error: "Não consegui salvar." };
   }
   revalidatePath(`/students/${studentId}`);

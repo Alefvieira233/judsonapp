@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -36,7 +37,7 @@ export async function POST(request: Request) {
     .eq("user_id", session.profile.id);
 
   if (error) {
-    console.error("[push.unsubscribe]", error);
+    log.error("push.unsubscribe", error, { scope: "push" });
     return NextResponse.json({ error: "delete_failed" }, { status: 500 });
   }
 

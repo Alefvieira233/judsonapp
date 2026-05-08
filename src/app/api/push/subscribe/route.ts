@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
     );
 
   if (error) {
-    console.error("[push.subscribe]", error);
+    log.error("push.subscribe", error, { scope: "push" });
     return NextResponse.json({ error: "save_failed" }, { status: 500 });
   }
 

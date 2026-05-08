@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const createSchema = z.object({
@@ -51,7 +52,7 @@ export async function createWorkoutAction(
     .single();
 
   if (error || !data) {
-    console.error("[workouts.create]", error);
+    log.error("workouts.create", error, { scope: "workouts" });
     return { error: "Não consegui criar. Tenta de novo." };
   }
 
@@ -95,7 +96,7 @@ export async function updateWorkoutAction(
     .eq("tenant_id", session.tenant.id);
 
   if (error) {
-    console.error("[workouts.update]", error);
+    log.error("workouts.update", error, { scope: "workouts" });
     return { error: "Não consegui salvar. Tenta de novo." };
   }
 
@@ -140,7 +141,7 @@ export async function duplicateWorkoutAction(formData: FormData): Promise<void> 
     .select("id")
     .single();
   if (error || !created) {
-    console.error("[workouts.duplicate.create]", error);
+    log.error("workouts.duplicate.create", error, { scope: "workouts" });
     return;
   }
 
@@ -159,7 +160,7 @@ export async function duplicateWorkoutAction(formData: FormData): Promise<void> 
       })),
     );
     if (itemsError) {
-      console.error("[workouts.duplicate.items]", itemsError);
+      log.error("workouts.duplicate.items", itemsError, { scope: "workouts" });
     }
   }
 
@@ -220,7 +221,7 @@ export async function cloneWorkoutToStudentAction(formData: FormData): Promise<v
     .select("id")
     .single();
   if (error || !created) {
-    console.error("[workouts.clone.create]", error);
+    log.error("workouts.clone.create", error, { scope: "workouts" });
     return;
   }
 
@@ -239,7 +240,7 @@ export async function cloneWorkoutToStudentAction(formData: FormData): Promise<v
       })),
     );
     if (itemsError) {
-      console.error("[workouts.clone.items]", itemsError);
+      log.error("workouts.clone.items", itemsError, { scope: "workouts" });
     }
   }
 
@@ -356,7 +357,7 @@ export async function saveWorkoutItemsAction(
       .delete()
       .in("id", toDelete);
     if (delError) {
-      console.error("[workouts.items.delete]", delError);
+      log.error("workouts.items.delete", delError, { scope: "workouts" });
       return { error: "Não consegui salvar. Tenta de novo." };
     }
   }
@@ -376,7 +377,7 @@ export async function saveWorkoutItemsAction(
       })
       .eq("id", it.id!);
     if (updError) {
-      console.error("[workouts.items.update]", updError);
+      log.error("workouts.items.update", updError, { scope: "workouts" });
       return { error: "Não consegui salvar. Tenta de novo." };
     }
   }
@@ -386,7 +387,7 @@ export async function saveWorkoutItemsAction(
       .from("workout_items")
       .insert(toInsert);
     if (insError) {
-      console.error("[workouts.items.insert]", insError);
+      log.error("workouts.items.insert", insError, { scope: "workouts" });
       return { error: "Não consegui salvar. Tenta de novo." };
     }
   }

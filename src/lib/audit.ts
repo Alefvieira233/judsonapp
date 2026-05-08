@@ -2,6 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 
+import { log } from "@/lib/logger";
 import { clientIp } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
@@ -43,8 +44,8 @@ export async function logAction(input: LogActionInput): Promise<void> {
       ip,
       user_agent: ua,
     });
-    if (error) console.error("[audit] insert failed:", error);
+    if (error) log.error("audit.insert", error, { scope: "audit", action: input.action, tenantId: input.tenantId ?? undefined });
   } catch (err) {
-    console.error("[audit] log failed:", err);
+    log.error("audit.log", err, { scope: "audit", action: input.action, tenantId: input.tenantId ?? undefined });
   }
 }

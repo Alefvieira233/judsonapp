@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 
 import { verifyWebhookSignature } from "@/lib/asaas";
+import { log } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
 import type { Json } from "@/types/database";
 
@@ -62,7 +63,7 @@ export async function POST(req: NextRequest) {
 
   const parsed = payloadSchema.safeParse(raw);
   if (!parsed.success) {
-    console.error("[asaas.webhook] schema mismatch", parsed.error.issues);
+    log.error("asaas.webhook.schema", parsed.error, { scope: "asaas.webhook", issues: parsed.error.issues });
     return NextResponse.json({ error: "invalid payload" }, { status: 400 });
   }
 
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
     if (insertErr.code === "23505") {
       return NextResponse.json({ ok: true, idempotent: true });
     }
-    console.error("[asaas.webhook] insert failed", insertErr);
+    log.error("asaas.webhook.insert", insertErr, { scope: "asaas.webhook", providerEventId, event: payload.event });
     return NextResponse.json({ error: "insert failed" }, { status: 500 });
   }
 
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest) {
         .select("id, student_id, plan_id, status, tenant_id")
         .single();
       if (updateErr) {
-        console.error("[asaas.webhook] subscription update", updateErr);
+        log.error("asaas.webhook.subscriptionUpdate", updateErr, { scope: "asaas.webhook", subscriptionId, tenantId: tenantId ?? undefined });
       } else if (updated && updated.status === "active" && updated.plan_id) {
         // Espelha plano corrente no profile pra a vitrine /planos refletir.
         const { error: profileErr } = await admin
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
           .eq("id", updated.student_id)
           .eq("tenant_id", updated.tenant_id);
         if (profileErr) {
-          console.error("[asaas.webhook] profile sync", profileErr);
+          log.error("asaas.webhook.profileSync", profileErr, { scope: "asaas.webhook", subscriptionId, tenantId: tenantId ?? undefined });
         }
       }
     }

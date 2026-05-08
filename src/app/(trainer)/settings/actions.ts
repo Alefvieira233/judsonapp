@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
+import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
 const tenantSchema = z.object({
@@ -84,7 +85,7 @@ export async function updateTenantAction(
     .eq("id", session.tenant.id);
 
   if (error) {
-    console.error("[settings.update]", error);
+    log.error("settings.update", error, { scope: "settings" });
     return { error: "Não consegui salvar. Tenta de novo." };
   }
 

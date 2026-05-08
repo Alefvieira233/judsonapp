@@ -2,6 +2,7 @@ import "server-only";
 
 import webpush, { type PushSubscription as WebPushSubscription } from "web-push";
 
+import { log } from "@/lib/logger";
 import { createAdminClient } from "@/lib/supabase/server";
 
 export type PushPayload = {
@@ -78,7 +79,7 @@ export async function sendPushTo({
       await admin.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
       return { ok: false, gone: true, error: message };
     }
-    console.warn("[push] send failed", { status, message });
+    log.warn("push.send", { scope: "push", status, message });
     return { ok: false, gone: false, error: message };
   }
 }

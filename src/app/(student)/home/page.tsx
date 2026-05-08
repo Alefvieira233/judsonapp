@@ -11,11 +11,16 @@ import {
 
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentStudent } from "@/lib/auth";
+import { computeStreak, startOfDay } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
+
+import { Heatmap7Days } from "./heatmap-7-days";
+import { HeroStreak } from "./hero-streak";
 
 export const metadata = { title: "Hoje" };
 
 const WEEKDAY_LABELS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+const MS_PER_DAY = 86_400_000;
 
 type WorkoutRow = {
   id: string;
@@ -51,27 +56,10 @@ function pickTodayWorkout(
   return workouts[0] ?? null;
 }
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function computeStreak(dates: Date[]): number {
-  if (dates.length === 0) return 0;
-  const today = startOfDay(new Date());
-  const days = new Set(dates.map((d) => startOfDay(d).getTime()));
-  let cursor = today;
-  if (!days.has(cursor.getTime())) {
-    cursor = new Date(cursor.getTime() - 86_400_000);
-    if (!days.has(cursor.getTime())) return 0;
-  }
-  let streak = 0;
-  while (days.has(cursor.getTime())) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
+function buildLast7Days(completed: Date[]): boolean[] {
+  const today = startOfDay(new Date()).getTime();
+  const set = new Set(completed.map((d) => startOfDay(d).getTime()));
+  return Array.from({ length: 7 }, (_, i) => set.has(today - i * MS_PER_DAY));
 }
 
 export default async function StudentHomePage() {
@@ -114,6 +102,7 @@ export default async function StudentHomePage() {
 
   const workouts = workoutsRes.data ?? [];
   const today = pickTodayWorkout(workouts, todayDow);
+  const todayIsScheduled = !!today?.scheduled_days?.includes(todayDow);
   const upcoming = workouts.filter((w) => w.id !== today?.id).slice(0, 3);
   const todayItemCount = today?.items?.[0]?.count ?? 0;
   const plan = plansRes.data;
@@ -123,50 +112,77 @@ export default async function StudentHomePage() {
     .map((s) => new Date(s));
   const streak = computeStreak(completedDates);
   const totalCompleted = completedDates.length;
+  const last7 = buildLast7Days(completedDates);
+
+  const heroCtaHref = today ? `/treinos/${today.id}` : "/treinos";
+  const heroCtaLabel = today
+    ? todayIsScheduled
+      ? "Iniciar treino de hoje"
+      : "Iniciar próximo treino"
+    : "Ver todos os treinos";
 
   return (
-    <section className="flex flex-1 flex-col gap-8 px-5 pb-8 pt-8">
-      {/* Hero */}
-      <header className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-[var(--brand-primary)]/20 via-card/40 to-card/30 p-6">
+    <section className="flex flex-1 flex-col gap-7 px-5 pb-8 pt-6">
+      <header className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-[var(--brand-primary)]/20 via-card/40 to-card/30 px-5 pb-6 pt-7">
         <div
           aria-hidden
           className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-[var(--brand-primary)]/30 blur-3xl"
         />
-        <div className="relative flex flex-col gap-3">
-          <span className="text-[11px] uppercase tracking-[0.4em] text-muted-foreground">
-            {greeting(now)}
-          </span>
-          <h1 className="font-display text-5xl leading-[0.85]">
-            {firstName(profile.full_name)}
-          </h1>
-          {tenant.tagline ? (
-            <p className="text-sm text-muted-foreground">{tenant.tagline}</p>
-          ) : null}
+        <div className="relative flex flex-col gap-5">
+          <HeroStreak
+            greeting={greeting(now)}
+            firstName={firstName(profile.full_name)}
+            streak={streak}
+          />
 
-          <div className="mt-3 flex gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Stat
               icon={<FlameIcon className="size-3.5" />}
-              label="Streak"
+              label="streak"
               value={`${streak}d`}
             />
             <Stat
               icon={<TrendingUpIcon className="size-3.5" />}
-              label="Total"
+              label="treinos"
               value={totalCompleted.toString()}
             />
             {plan ? (
               <Stat
                 icon={<SparklesIcon className="size-3.5" />}
-                label="Plano"
+                label="plano"
                 value={plan.name.split(" ")[0] ?? "—"}
                 highlight
               />
             ) : null}
           </div>
+
+          <Link
+            href={heroCtaHref}
+            className={buttonVariants({
+              size: "lg",
+              className: "w-full",
+            })}
+          >
+            <DumbbellIcon className="size-4" /> {heroCtaLabel}
+          </Link>
         </div>
       </header>
 
-      {/* Today's workout card */}
+      <section
+        aria-label="Últimos 7 dias"
+        className="flex flex-col gap-3 rounded-2xl border border-border bg-card/30 p-4"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            Últimos 7 dias
+          </span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {last7.filter(Boolean).length}/7
+          </span>
+        </div>
+        <Heatmap7Days days={last7} todayDow={todayDow} />
+      </section>
+
       {today ? (
         <Link
           href={`/treinos/${today.id}`}
@@ -174,9 +190,7 @@ export default async function StudentHomePage() {
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] uppercase tracking-[0.3em] text-[var(--brand-primary)]">
-              {today.scheduled_days?.includes(todayDow)
-                ? "Treino de hoje"
-                : "Próximo treino"}
+              {todayIsScheduled ? "Treino de hoje" : "Próximo treino"}
             </span>
             <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
               {todayItemCount} {todayItemCount === 1 ? "exercício" : "exercícios"}
@@ -194,7 +208,6 @@ export default async function StudentHomePage() {
         <EmptyToday tenantFirstName={firstName(tenant.name)} />
       )}
 
-      {/* Upcoming */}
       {upcoming.length > 0 ? (
         <section className="flex flex-col gap-3">
           <h2 className="font-display text-xl">Outros treinos</h2>
@@ -227,7 +240,6 @@ export default async function StudentHomePage() {
         </section>
       ) : null}
 
-      {/* Plan + Indicação CTAs */}
       <section className="grid gap-3 sm:grid-cols-2">
         <Link
           href="/planos"
@@ -309,7 +321,7 @@ function Stat({
       }`}
     >
       {icon}
-      <span className="font-medium text-foreground">{value}</span>
+      <span className="font-medium tabular-nums text-foreground">{value}</span>
       <span className="text-muted-foreground">{label}</span>
     </div>
   );

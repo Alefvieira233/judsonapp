@@ -166,6 +166,85 @@ export async function duplicateWorkoutAction(formData: FormData): Promise<void> 
   redirect(`/workouts/${created.id}`);
 }
 
+const cloneSchema = z.object({
+  id: z.string().uuid(),
+  student_id: z.string().uuid(),
+});
+
+export async function cloneWorkoutToStudentAction(formData: FormData): Promise<void> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") return;
+
+  const parsed = cloneSchema.safeParse({
+    id: formData.get("id"),
+    student_id: formData.get("student_id"),
+  });
+  if (!parsed.success) return;
+
+  const supabase = await createClient();
+
+  const { data: source } = await supabase
+    .from("workouts")
+    .select("id, title, description, scheduled_days, active")
+    .eq("id", parsed.data.id)
+    .eq("tenant_id", session.tenant.id)
+    .maybeSingle();
+  if (!source) return;
+
+  const { data: student } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", parsed.data.student_id)
+    .eq("tenant_id", session.tenant.id)
+    .eq("role", "student")
+    .maybeSingle();
+  if (!student) return;
+
+  const { data: items } = await supabase
+    .from("workout_items")
+    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes")
+    .eq("workout_id", parsed.data.id)
+    .order("position");
+
+  const { data: created, error } = await supabase
+    .from("workouts")
+    .insert({
+      tenant_id: session.tenant.id,
+      student_id: parsed.data.student_id,
+      title: source.title,
+      description: source.description,
+      scheduled_days: source.scheduled_days,
+      active: source.active ?? true,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    console.error("[workouts.clone.create]", error);
+    return;
+  }
+
+  if (items && items.length > 0) {
+    const { error: itemsError } = await supabase.from("workout_items").insert(
+      items.map((it) => ({
+        workout_id: created.id,
+        exercise_id: it.exercise_id,
+        position: it.position,
+        sets: it.sets,
+        reps: it.reps,
+        rest_seconds: it.rest_seconds,
+        load_suggestion: it.load_suggestion,
+        notes: it.notes,
+      })),
+    );
+    if (itemsError) {
+      console.error("[workouts.clone.items]", itemsError);
+    }
+  }
+
+  revalidatePath("/workouts");
+  redirect(`/workouts/${created.id}`);
+}
+
 export async function deleteWorkoutAction(formData: FormData): Promise<void> {
   const session = await getCurrentProfile();
   if (!session || session.profile.role !== "owner") return;

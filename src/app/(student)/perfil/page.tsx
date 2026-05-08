@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
+  CameraIcon,
   ChevronRightIcon,
   ClipboardCheckIcon,
   ClockIcon,
@@ -88,7 +89,7 @@ export default async function StudentProfilePage() {
 
   const supabase = await createClient();
 
-  const [logsRes, planRes, referralsRes, anamneseRes] = await Promise.all([
+  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes] = await Promise.all([
     supabase
       .from("workout_logs")
       .select(
@@ -121,8 +122,13 @@ export default async function StudentProfilePage() {
       .select("signed_at, reviewed_at")
       .eq("student_id", profile.id)
       .maybeSingle<{ signed_at: string | null; reviewed_at: string | null }>(),
+    supabase
+      .from("progress_photos")
+      .select("id", { count: "exact", head: true })
+      .eq("student_id", profile.id),
   ]);
   const anamnese = anamneseRes.data;
+  const photoCount = photosCountRes.count ?? 0;
 
   const completed = logsRes.data ?? [];
   const total = completed.length;
@@ -369,6 +375,32 @@ export default async function StudentProfilePage() {
             {anamnese?.signed_at
               ? "Toca pra revisar e atualizar quando precisar"
               : "Preencha antes de começar os treinos"}
+          </span>
+        </div>
+        <ChevronRightIcon
+          className="size-5 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+      </Link>
+
+      <Link
+        href="/perfil/fotos"
+        className="flex items-center gap-4 rounded-2xl border border-border bg-card/30 p-5 transition-colors hover:bg-card/60"
+      >
+        <span className="grid size-12 shrink-0 place-items-center rounded-xl bg-card text-muted-foreground">
+          <CameraIcon className="size-5" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            Fotos de progresso
+          </span>
+          <span className="truncate font-display text-xl leading-tight">
+            {photoCount > 0 ? "Acompanhe sua evolução" : "Subir primeira"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {photoCount > 0
+              ? `${photoCount} foto${photoCount === 1 ? "" : "s"} salva${photoCount === 1 ? "" : "s"}`
+              : "Tira a primeira pra começar a comparar"}
           </span>
         </div>
         <ChevronRightIcon

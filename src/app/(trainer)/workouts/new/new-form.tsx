@@ -10,19 +10,21 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { createWorkoutAction, type CreateWorkoutState } from "../actions";
 
-function SubmitButton() {
+function SubmitButton({ isTemplate }: { isTemplate: boolean }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" size="lg" className="w-full md:w-auto" disabled={pending}>
-      {pending ? "Criando…" : "Criar e abrir builder"}
+      {pending ? "Criando…" : isTemplate ? "Criar template" : "Criar e abrir builder"}
     </Button>
   );
 }
 
 export function NewWorkoutForm({
   students,
+  isTemplate = false,
 }: {
   students: { id: string; full_name: string }[];
+  isTemplate?: boolean;
 }) {
   const [state, formAction] = useActionState<CreateWorkoutState, FormData>(
     createWorkoutAction,
@@ -32,31 +34,41 @@ export function NewWorkoutForm({
   return (
     <form action={formAction} className="flex flex-col gap-5">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="title">Título do treino</Label>
+        <Label htmlFor="title">
+          {isTemplate ? "Título do template" : "Título do treino"}
+        </Label>
         <Input
           id="title"
           name="title"
           required
-          placeholder="Treino A — peito e tríceps"
+          placeholder={
+            isTemplate
+              ? "Push A — peito e tríceps"
+              : "Treino A — peito e tríceps"
+          }
         />
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="student_id">Aluna (opcional)</Label>
-        <select
-          id="student_id"
-          name="student_id"
-          className="h-10 rounded-lg border border-input bg-transparent px-3 text-base"
-          defaultValue=""
-        >
-          <option value="">— Nenhuma (modelo) —</option>
-          {students.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.full_name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {isTemplate ? (
+        <input type="hidden" name="student_id" value="" />
+      ) : (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="student_id">Aluna (opcional)</Label>
+          <select
+            id="student_id"
+            name="student_id"
+            className="h-10 rounded-lg border border-input bg-transparent px-3 text-base"
+            defaultValue=""
+          >
+            <option value="">— Nenhuma (modelo) —</option>
+            {students.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.full_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="description">Descrição (opcional)</Label>
@@ -75,7 +87,7 @@ export function NewWorkoutForm({
       ) : null}
 
       <div className="flex justify-end pt-2">
-        <SubmitButton />
+        <SubmitButton isTemplate={isTemplate} />
       </div>
     </form>
   );

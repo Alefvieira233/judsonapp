@@ -314,6 +314,11 @@ export default async function DashboardPage() {
 
         <div className="flex flex-col gap-3">
           <QuickLink
+            href="/workouts?view=templates"
+            title="Templates"
+            description="Treinos modelo prontos pra clonar entre alunas."
+          />
+          <QuickLink
             href="/plans"
             title="Planos"
             description="Define os planos e a consultoria que oferece."

@@ -8,18 +8,27 @@ import { NewWorkoutForm } from "./new-form";
 
 export const metadata = { title: "Novo treino" };
 
-export default async function NewWorkoutPage() {
+export default async function NewWorkoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ template?: string }>;
+}) {
   const session = await getCurrentProfile();
   if (!session) return null;
 
+  const sp = await searchParams;
+  const isTemplate = sp.template === "1";
+
   const supabase = await createClient();
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("tenant_id", session.tenant.id)
-    .eq("role", "student")
-    .eq("active", true)
-    .order("full_name");
+  const { data: students } = isTemplate
+    ? { data: [] as { id: string; full_name: string }[] }
+    : await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("tenant_id", session.tenant.id)
+        .eq("role", "student")
+        .eq("active", true)
+        .order("full_name");
 
   return (
     <div className="mx-auto flex w-full max-w-xl flex-col gap-6 px-4 py-6 md:px-6 md:py-10">
@@ -32,14 +41,19 @@ export default async function NewWorkoutPage() {
 
       <header className="flex flex-col gap-1">
         <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          Novo
+          {isTemplate ? "Novo template" : "Novo"}
         </span>
         <h1 className="font-display text-4xl leading-none md:text-5xl">
-          Treino
+          {isTemplate ? "Template" : "Treino"}
         </h1>
+        {isTemplate ? (
+          <p className="text-sm text-muted-foreground">
+            Treino sem aluna atribuída. Você clona pra cada aluna depois.
+          </p>
+        ) : null}
       </header>
 
-      <NewWorkoutForm students={students ?? []} />
+      <NewWorkoutForm students={students ?? []} isTemplate={isTemplate} />
     </div>
   );
 }

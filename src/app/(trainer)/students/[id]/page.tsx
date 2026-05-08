@@ -1,6 +1,16 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon, ClockIcon, FlameIcon, ListChecksIcon } from "lucide-react";
+import {
+  ActivityIcon,
+  AlertTriangleIcon,
+  ArrowLeftIcon,
+  ClipboardCheckIcon,
+  ClockIcon,
+  FlameIcon,
+  ListChecksIcon,
+  RulerIcon,
+  ChevronRightIcon,
+} from "lucide-react";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
@@ -171,6 +181,39 @@ export default async function StudentDetailPage({
       .returns<{ id: string; full_name: string }[]>(),
   ]);
 
+  const [anamneseRes, lastAssessRes, photosCountRes] = await Promise.all([
+    supabase
+      .from("anamneses")
+      .select("signed_at, reviewed_at, has_heart_condition, has_chest_pain, has_dizziness, is_pregnant")
+      .eq("tenant_id", session.tenant.id)
+      .eq("student_id", id)
+      .maybeSingle(),
+    supabase
+      .from("assessments")
+      .select("id, measured_at, weight_kg, body_fat_pct")
+      .eq("tenant_id", session.tenant.id)
+      .eq("student_id", id)
+      .order("measured_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("progress_photos")
+      .select("id", { count: "exact", head: true })
+      .eq("tenant_id", session.tenant.id)
+      .eq("student_id", id),
+  ]);
+  const anamnese = anamneseRes.data;
+  const lastAssess = lastAssessRes.data;
+  const photoCount = photosCountRes.count ?? 0;
+  const anamneseFlags = anamnese
+    ? !!(
+        anamnese.has_heart_condition ||
+        anamnese.has_chest_pain ||
+        anamnese.has_dizziness ||
+        anamnese.is_pregnant
+      )
+    : false;
+
   const logs = logsRes.data ?? [];
   const plans = plansRes.data ?? [];
   const referralsAll = referralsRes.data ?? [];
@@ -245,6 +288,85 @@ export default async function StudentDetailPage({
         currentPlanId={student.current_plan_id ?? null}
         plans={plans}
       />
+
+      <section className="flex flex-col gap-2">
+        <h2 className="font-display text-lg">Saúde</h2>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <Link
+            href={`/students/${student.id}/anamnese`}
+            className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
+              anamneseFlags
+                ? "border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/5 hover:border-[var(--brand-primary)]/60"
+                : !anamnese?.signed_at
+                ? "border-dashed border-border bg-card/20 hover:bg-card/40"
+                : "border-border bg-card/30 hover:bg-card/60"
+            }`}
+          >
+            <span className="grid size-9 place-items-center rounded-md bg-card text-muted-foreground">
+              {anamneseFlags ? (
+                <AlertTriangleIcon className="size-4 text-[var(--brand-primary)]" />
+              ) : (
+                <ClipboardCheckIcon className="size-4" />
+              )}
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Anamnese
+              </span>
+              <span className="truncate text-sm font-medium">
+                {!anamnese?.signed_at
+                  ? "Pendente"
+                  : anamneseFlags
+                  ? "Atenção"
+                  : anamnese.reviewed_at
+                  ? "Revisada"
+                  : "Pra revisar"}
+              </span>
+            </div>
+            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+          </Link>
+
+          <Link
+            href={`/students/${student.id}/avaliacao`}
+            className="flex items-center gap-3 rounded-xl border border-border bg-card/30 p-3 transition-colors hover:bg-card/60"
+          >
+            <span className="grid size-9 place-items-center rounded-md bg-card text-muted-foreground">
+              <RulerIcon className="size-4" />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Avaliação
+              </span>
+              <span className="truncate text-sm font-medium">
+                {lastAssess
+                  ? `${lastAssess.weight_kg ?? "—"}kg${
+                      lastAssess.body_fat_pct ? ` · ${lastAssess.body_fat_pct}%` : ""
+                    }`
+                  : "Sem registros"}
+              </span>
+            </div>
+            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+          </Link>
+
+          <Link
+            href={`/students/${student.id}/fotos`}
+            className="flex items-center gap-3 rounded-xl border border-border bg-card/30 p-3 transition-colors hover:bg-card/60"
+          >
+            <span className="grid size-9 place-items-center rounded-md bg-card text-muted-foreground">
+              <ActivityIcon className="size-4" />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                Fotos
+              </span>
+              <span className="truncate text-sm font-medium">
+                {photoCount === 0 ? "Sem fotos" : `${photoCount} ${photoCount === 1 ? "foto" : "fotos"}`}
+              </span>
+            </div>
+            <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+          </Link>
+        </div>
+      </section>
 
       <ReferralsBlock
         studentId={student.id}

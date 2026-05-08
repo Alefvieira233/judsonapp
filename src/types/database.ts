@@ -104,6 +104,180 @@ export type Database = {
           },
         ]
       }
+      anamneses: {
+        Row: {
+          activity_level: string | null
+          allergies: string | null
+          conditions: string | null
+          created_at: string
+          family_history: string | null
+          goals: string | null
+          has_bone_or_joint_problem: boolean | null
+          has_chest_pain: boolean | null
+          has_dizziness: boolean | null
+          has_heart_condition: boolean | null
+          id: string
+          injuries: string | null
+          is_pregnant: boolean | null
+          medications: string | null
+          notes: string | null
+          reviewed_at: string | null
+          signed_at: string | null
+          smoker: boolean | null
+          student_id: string
+          surgeries: string | null
+          takes_blood_pressure_meds: boolean | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_level?: string | null
+          allergies?: string | null
+          conditions?: string | null
+          created_at?: string
+          family_history?: string | null
+          goals?: string | null
+          has_bone_or_joint_problem?: boolean | null
+          has_chest_pain?: boolean | null
+          has_dizziness?: boolean | null
+          has_heart_condition?: boolean | null
+          id?: string
+          injuries?: string | null
+          is_pregnant?: boolean | null
+          medications?: string | null
+          notes?: string | null
+          reviewed_at?: string | null
+          signed_at?: string | null
+          smoker?: boolean | null
+          student_id: string
+          surgeries?: string | null
+          takes_blood_pressure_meds?: boolean | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_level?: string | null
+          allergies?: string | null
+          conditions?: string | null
+          created_at?: string
+          family_history?: string | null
+          goals?: string | null
+          has_bone_or_joint_problem?: boolean | null
+          has_chest_pain?: boolean | null
+          has_dizziness?: boolean | null
+          has_heart_condition?: boolean | null
+          id?: string
+          injuries?: string | null
+          is_pregnant?: boolean | null
+          medications?: string | null
+          notes?: string | null
+          reviewed_at?: string | null
+          signed_at?: string | null
+          smoker?: boolean | null
+          student_id?: string
+          surgeries?: string | null
+          takes_blood_pressure_meds?: boolean | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      assessments: {
+        Row: {
+          arm_cm: number | null
+          body_fat_pct: number | null
+          calf_cm: number | null
+          chest_cm: number | null
+          created_at: string
+          height_cm: number | null
+          hip_cm: number | null
+          id: string
+          measured_at: string
+          measured_by: string | null
+          muscle_pct: number | null
+          notes: string | null
+          student_id: string
+          tenant_id: string
+          thigh_cm: number | null
+          waist_cm: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          arm_cm?: number | null
+          body_fat_pct?: number | null
+          calf_cm?: number | null
+          chest_cm?: number | null
+          created_at?: string
+          height_cm?: number | null
+          hip_cm?: number | null
+          id?: string
+          measured_at?: string
+          measured_by?: string | null
+          muscle_pct?: number | null
+          notes?: string | null
+          student_id: string
+          tenant_id: string
+          thigh_cm?: number | null
+          waist_cm?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          arm_cm?: number | null
+          body_fat_pct?: number | null
+          calf_cm?: number | null
+          chest_cm?: number | null
+          created_at?: string
+          height_cm?: number | null
+          hip_cm?: number | null
+          id?: string
+          measured_at?: string
+          measured_by?: string | null
+          muscle_pct?: number | null
+          notes?: string | null
+          student_id?: string
+          tenant_id?: string
+          thigh_cm?: number | null
+          waist_cm?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
+      progress_photos: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          pose: string | null
+          storage_path: string
+          student_id: string
+          taken_at: string
+          tenant_id: string
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pose?: string | null
+          storage_path: string
+          student_id: string
+          taken_at?: string
+          tenant_id: string
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          pose?: string | null
+          storage_path?: string
+          student_id?: string
+          taken_at?: string
+          tenant_id?: string
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
       community_reactions: {
         Row: {
           created_at: string | null
@@ -942,3 +1116,6 @@ export type Invite = Tables<"invites">
 export type Plan = Tables<"plans">
 export type Referral = Tables<"referrals">
 export type Consent = Tables<"consents">
+export type Anamnese = Tables<"anamneses">
+export type Assessment = Tables<"assessments">
+export type ProgressPhoto = Tables<"progress_photos">

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   ChevronRightIcon,
+  ClipboardCheckIcon,
   ClockIcon,
   DownloadIcon,
   FlameIcon,
@@ -87,7 +88,7 @@ export default async function StudentProfilePage() {
 
   const supabase = await createClient();
 
-  const [logsRes, planRes, referralsRes] = await Promise.all([
+  const [logsRes, planRes, referralsRes, anamneseRes] = await Promise.all([
     supabase
       .from("workout_logs")
       .select(
@@ -115,7 +116,13 @@ export default async function StudentProfilePage() {
       .eq("referrer_id", profile.id)
       .order("created_at", { ascending: false })
       .returns<ReferralRow[]>(),
+    supabase
+      .from("anamneses")
+      .select("signed_at, reviewed_at")
+      .eq("student_id", profile.id)
+      .maybeSingle<{ signed_at: string | null; reviewed_at: string | null }>(),
   ]);
+  const anamnese = anamneseRes.data;
 
   const completed = logsRes.data ?? [];
   const total = completed.length;
@@ -333,6 +340,42 @@ export default async function StudentProfilePage() {
           </ul>
         )}
       </section>
+
+      <Link
+        href="/perfil/anamnese"
+        className={`flex items-center gap-4 rounded-2xl border p-5 transition-colors ${
+          anamnese?.signed_at
+            ? "border-border bg-card/30 hover:bg-card/60"
+            : "border-[var(--brand-primary)]/40 bg-gradient-to-br from-[var(--brand-primary)]/15 via-card/40 to-card/30 hover:border-[var(--brand-primary)]/60"
+        }`}
+      >
+        <span
+          className={`grid size-12 shrink-0 place-items-center rounded-xl ${
+            anamnese?.signed_at
+              ? "bg-card text-muted-foreground"
+              : "bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]"
+          }`}
+        >
+          <ClipboardCheckIcon className="size-5" />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            Anamnese
+          </span>
+          <span className="truncate font-display text-xl leading-tight">
+            {anamnese?.signed_at ? "Já preenchida" : "Pendente"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {anamnese?.signed_at
+              ? "Toca pra revisar e atualizar quando precisar"
+              : "Preencha antes de começar os treinos"}
+          </span>
+        </div>
+        <ChevronRightIcon
+          className="size-5 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+      </Link>
 
       <section className="flex flex-col gap-2">
         <Link

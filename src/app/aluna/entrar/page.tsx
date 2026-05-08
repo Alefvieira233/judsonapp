@@ -37,6 +37,13 @@ export default async function StudentLoginPage() {
         <p className="text-center text-xs text-muted-foreground">
           Personal? <Link href="/login" className="text-foreground underline">Acessa por aqui</Link>.
         </p>
+
+        <p className="text-center text-[11px] text-muted-foreground/80">
+          Ao entrar você reafirma os{" "}
+          <Link href="/termos" className="text-foreground/80 underline">Termos de Uso</Link>{" "}
+          e a{" "}
+          <Link href="/privacidade" className="text-foreground/80 underline">Política de Privacidade</Link>.
+        </p>
       </section>
     </main>
   );

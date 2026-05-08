@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Inter } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "@/components/ui/sonner";
@@ -75,7 +77,9 @@ export const viewport: Viewport = {
   themeColor: "#0A0A0A",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // maximumScale removed: blocking pinch-zoom is hostile to low-vision users
+  // (WCAG 1.4.4). Modern iOS handles input zoom-on-focus via font-size: 16px
+  // on inputs — see the .ui Input component.
   viewportFit: "cover",
 };
 
@@ -94,6 +98,9 @@ export default function RootLayout({
         {children}
         <PwaRegister />
         <Toaster position="top-center" richColors closeButton />
+        {/* Vercel telemetry — opt-in via the Vercel project. No cookies, no PII. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

@@ -36,6 +36,13 @@ export default async function LoginPage({
         <p className="text-center text-xs text-muted-foreground">
           Aluna? <a href="/aluna/entrar" className="text-foreground underline">Entra por aqui</a> com teu email.
         </p>
+
+        <p className="text-center text-[11px] text-muted-foreground/80">
+          Ao entrar você aceita os{" "}
+          <a href="/termos" className="text-foreground/80 underline">Termos de Uso</a>{" "}
+          e a{" "}
+          <a href="/privacidade" className="text-foreground/80 underline">Política de Privacidade</a>.
+        </p>
       </section>
     </main>
   );

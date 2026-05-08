@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, TrashIcon } from "lucide-react";
+import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { getCurrentProfile } from "@/lib/auth";
@@ -11,12 +12,17 @@ import { PlanForm } from "../plan-form";
 
 export const metadata = { title: "Editar plano" };
 
+const idSchema = z.string().uuid();
+
 export default async function EditPlanPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const idParse = idSchema.safeParse(rawId);
+  if (!idParse.success) notFound();
+  const id = idParse.data;
   const session = await getCurrentProfile();
   if (!session) return null;
 

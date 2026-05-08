@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
+import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
 import { WorkoutBuilder } from "./builder";
+
+const idSchema = z.string().uuid();
 
 export const metadata = { title: "Treino" };
 
@@ -14,7 +17,10 @@ export default async function WorkoutPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const idParse = idSchema.safeParse(rawId);
+  if (!idParse.success) notFound();
+  const id = idParse.data;
   const session = await getCurrentProfile();
   if (!session) return null;
 

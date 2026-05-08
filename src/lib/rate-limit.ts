@@ -1,25 +1,26 @@
-// In-memory rate limiter. Good for single-instance deploys (Vercel serverless
-// usually keeps the same warm instance for a few minutes; cold starts reset
-// the bucket — that's acceptable since each cold start is essentially a new
-// IP from the perspective of the attacker too).
+// Pluggable rate limiter:
+//   - When UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN are set, uses
+//     @upstash/ratelimit with a sliding-window algorithm. Shared across all
+//     Vercel instances and resilient to cold starts.
+//   - Otherwise falls back to an in-memory Map (fine for `npm run dev` and
+//     single-instance deploys; acceptable as MVP fallback).
 //
-// When we scale to multiple regions or want stricter guarantees, swap the
-// `buckets` Map for an Upstash Redis client (same interface, three lines
-// of code).
+// Same signature as before, so callers don't change. Reasoning behind the
+// pluggable shape: see analysis/04-security-lgpd.md ALTO-8.
+
+import type { Ratelimit } from "@upstash/ratelimit";
 
 type Bucket = { count: number; resetAt: number };
 
-const buckets = new Map<string, Bucket>();
-
-// Sweep expired buckets every 5min so the Map doesn't grow unbounded.
+const memBuckets = new Map<string, Bucket>();
 let lastSweep = Date.now();
 const SWEEP_INTERVAL = 5 * 60 * 1000;
 
-function sweep(now: number) {
+function memSweep(now: number) {
   if (now - lastSweep < SWEEP_INTERVAL) return;
   lastSweep = now;
-  for (const [k, b] of buckets) {
-    if (b.resetAt < now) buckets.delete(k);
+  for (const [k, b] of memBuckets) {
+    if (b.resetAt < now) memBuckets.delete(k);
   }
 }
 
@@ -29,22 +30,67 @@ export type RateLimitResult = {
   resetAt: number;
 };
 
-/**
- * Allow up to `limit` requests in `windowMs` for the given key.
- * Returns ok=false when the bucket is exhausted.
- */
+// Lazy Upstash client; null when not configured.
+let upstash: { ratelimit: Ratelimit; cache: Map<string, Ratelimit> } | null = null;
+
+function getUpstash() {
+  if (upstash) return upstash;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+
+  // Dynamic require keeps these out of the cold-start path when not configured.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Ratelimit } = require("@upstash/ratelimit") as typeof import("@upstash/ratelimit");
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Redis } = require("@upstash/redis") as typeof import("@upstash/redis");
+
+  const redis = new Redis({ url, token });
+
+  // Per (limit, windowMs) signature — Upstash needs a fixed config per limiter.
+  const cache = new Map<string, Ratelimit>();
+  const make = (limit: number, windowMs: number) => {
+    const key = `${limit}:${windowMs}`;
+    let rl = cache.get(key);
+    if (!rl) {
+      rl = new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(limit, `${windowMs} ms`),
+        analytics: false,
+        prefix: "judsonapp:rl",
+      });
+      cache.set(key, rl);
+    }
+    return rl;
+  };
+
+  // We expose a passthrough .ratelimit that closes over the factory.
+  upstash = {
+    cache,
+    ratelimit: {
+      // The factory is what we actually use. The public Ratelimit on the
+      // wrapper is unused but typed for future imports.
+    } as Ratelimit & { _factory: typeof make },
+  };
+  (upstash.ratelimit as unknown as { _factory: typeof make })._factory = make;
+  return upstash;
+}
+
 export function rateLimit(
   key: string,
   limit: number,
   windowMs: number,
 ): RateLimitResult {
+  // Sync API kept for compatibility with existing callers. Upstash is async,
+  // so the sync overload uses the in-memory store; for Upstash, callers
+  // should switch to rateLimitAsync (see below).
   const now = Date.now();
-  sweep(now);
+  memSweep(now);
 
-  const existing = buckets.get(key);
+  const existing = memBuckets.get(key);
   if (!existing || existing.resetAt < now) {
     const fresh: Bucket = { count: 1, resetAt: now + windowMs };
-    buckets.set(key, fresh);
+    memBuckets.set(key, fresh);
     return { ok: true, remaining: limit - 1, resetAt: fresh.resetAt };
   }
 
@@ -54,6 +100,29 @@ export function rateLimit(
 
   existing.count += 1;
   return { ok: true, remaining: limit - existing.count, resetAt: existing.resetAt };
+}
+
+/**
+ * Async rate-limit. Use this in Server Actions for production-grade limiting:
+ * uses Upstash when configured, falls back to in-memory otherwise. Same
+ * semantics as `rateLimit`, just awaitable.
+ */
+export async function rateLimitAsync(
+  key: string,
+  limit: number,
+  windowMs: number,
+): Promise<RateLimitResult> {
+  const u = getUpstash();
+  if (!u) return rateLimit(key, limit, windowMs);
+
+  const factory = (u.ratelimit as unknown as { _factory: (l: number, w: number) => Ratelimit })._factory;
+  const limiter = factory(limit, windowMs);
+  const res = await limiter.limit(key);
+  return {
+    ok: res.success,
+    remaining: res.remaining,
+    resetAt: res.reset,
+  };
 }
 
 export async function clientIp(): Promise<string> {

@@ -1,9 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, ClockIcon, FlameIcon, ListChecksIcon } from "lucide-react";
+import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
+
+const idSchema = z.string().uuid();
 
 import { EditStudentForm } from "./edit-form";
 import { PlanPicker } from "./plan-picker";
@@ -76,7 +79,12 @@ export default async function StudentDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  // Hardening (CRIT-3): UUID-validate the route param before any query — it
+  // flows into PostgREST filter strings below.
+  const idParse = idSchema.safeParse(rawId);
+  if (!idParse.success) notFound();
+  const id = idParse.data;
   const session = await getCurrentProfile();
   if (!session) return null;
 
@@ -112,17 +120,47 @@ export default async function StudentDetailPage({
       .eq("active", true)
       .order("display_order")
       .returns<PlanOption[]>(),
-    supabase
-      .from("referrals")
-      .select(
-        `id, status, reward_label, rewarded_at, created_at, referrer_id, referred_id,
-         referrer:profiles!referrals_referrer_id_fkey(id, full_name),
-         referred:profiles!referrals_referred_id_fkey(id, full_name)`,
-      )
-      .eq("tenant_id", session.tenant.id)
-      .or(`referrer_id.eq.${id},referred_id.eq.${id}`)
-      .order("created_at", { ascending: false })
-      .returns<ReferralFromDb[]>(),
+    // Replaces the previous .or(`referrer_id.eq.${id},referred_id.eq.${id}`)
+    // with two typed queries — string interpolation into PostgREST filters is
+    // a known injection vector. id is now zod-validated above.
+    Promise.all([
+      supabase
+        .from("referrals")
+        .select(
+          `id, status, reward_label, rewarded_at, created_at, referrer_id, referred_id,
+           referrer:profiles!referrals_referrer_id_fkey(id, full_name),
+           referred:profiles!referrals_referred_id_fkey(id, full_name)`,
+        )
+        .eq("tenant_id", session.tenant.id)
+        .eq("referrer_id", id)
+        .order("created_at", { ascending: false })
+        .returns<ReferralFromDb[]>(),
+      supabase
+        .from("referrals")
+        .select(
+          `id, status, reward_label, rewarded_at, created_at, referrer_id, referred_id,
+           referrer:profiles!referrals_referrer_id_fkey(id, full_name),
+           referred:profiles!referrals_referred_id_fkey(id, full_name)`,
+        )
+        .eq("tenant_id", session.tenant.id)
+        .eq("referred_id", id)
+        .order("created_at", { ascending: false })
+        .returns<ReferralFromDb[]>(),
+    ]).then(([asReferrer, asReferred]) => {
+      // Merge with stable order (most recent first) and dedupe by id.
+      const seen = new Set<string>();
+      const merged: ReferralFromDb[] = [];
+      for (const row of [...(asReferrer.data ?? []), ...(asReferred.data ?? [])]) {
+        if (!seen.has(row.id)) {
+          seen.add(row.id);
+          merged.push(row);
+        }
+      }
+      merged.sort((a, b) =>
+        (b.created_at ?? "").localeCompare(a.created_at ?? ""),
+      );
+      return { data: merged, error: asReferrer.error ?? asReferred.error };
+    }),
     supabase
       .from("profiles")
       .select("id, full_name")

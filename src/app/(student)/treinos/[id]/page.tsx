@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
+import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { WorkoutRunner, type RunnerItem, type RunnerWorkout } from "./runner";
+
+const idSchema = z.string().uuid();
 
 export const metadata = { title: "Treino" };
 
@@ -33,7 +36,10 @@ export default async function StudentWorkoutPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = await params;
+  const { id: rawId } = await params;
+  const idParse = idSchema.safeParse(rawId);
+  if (!idParse.success) notFound();
+  const id = idParse.data;
   const session = await getCurrentStudent();
   if (!session) return null;
 

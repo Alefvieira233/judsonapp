@@ -143,6 +143,50 @@ export type Database = {
           },
         ]
       }
+      consents: {
+        Row: {
+          accepted_at: string
+          context: string
+          id: string
+          ip: string | null
+          policy_version: string
+          tenant_id: string | null
+          terms_version: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          context: string
+          id?: string
+          ip?: string | null
+          policy_version: string
+          tenant_id?: string | null
+          terms_version: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          accepted_at?: string
+          context?: string
+          id?: string
+          ip?: string | null
+          policy_version?: string
+          tenant_id?: string | null
+          terms_version?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consents_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exercise_logs: {
         Row: {
           created_at: string | null
@@ -746,12 +790,7 @@ export type Database = {
       auth_role: { Args: never; Returns: string }
       auth_tenant_id: { Args: never; Returns: string }
       consume_invite: {
-        Args: {
-          p_email: string
-          p_name: string
-          p_token: string
-          p_user_id: string
-        }
+        Args: { p_name: string; p_token: string }
         Returns: string
       }
     }
@@ -902,3 +941,4 @@ export type Testimonial = Tables<"testimonials">
 export type Invite = Tables<"invites">
 export type Plan = Tables<"plans">
 export type Referral = Tables<"referrals">
+export type Consent = Tables<"consents">

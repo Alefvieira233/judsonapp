@@ -3,6 +3,7 @@
 import { LogOutIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { LogoutForm } from "@/components/logout-form";
 import { Separator } from "@/components/ui/separator";
 
 import { logoutAction } from "../actions";
@@ -65,7 +66,7 @@ export function Sidebar({
             {userName}
           </span>
         </div>
-        <form action={logoutAction}>
+        <LogoutForm action={logoutAction}>
           <button
             type="submit"
             className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
@@ -73,7 +74,7 @@ export function Sidebar({
             <LogOutIcon className="size-4" aria-hidden />
             Sair
           </button>
-        </form>
+        </LogoutForm>
       </div>
     </aside>
   );

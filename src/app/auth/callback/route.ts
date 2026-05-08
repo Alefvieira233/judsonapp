@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { recordConsent } from "@/lib/consent";
 import { createClient } from "@/lib/supabase/server";
 
 type PostgrestErrorWithCode = { code?: string | null };
@@ -12,6 +13,8 @@ function mapInviteError(code: string | null | undefined): string {
       return "invite_already_used";
     case "P0004":
       return "invite_expired";
+    case "P0005":
+      return "sign_in_failed";
     default:
       return "invite_failed";
   }
@@ -41,11 +44,11 @@ export async function GET(request: NextRequest) {
   }
 
   if (inviteToken) {
+    // RPC reads `auth.uid()` and `auth.users.email` server-side — the route
+    // only forwards the token + name (display only). See migration 0010.
     const { error: rpcError } = await supabase.rpc("consume_invite", {
       p_token: inviteToken,
-      p_user_id: data.user.id,
       p_name: name,
-      p_email: data.user.email ?? "",
     });
 
     if (rpcError) {
@@ -55,6 +58,19 @@ export async function GET(request: NextRequest) {
         new URL(`/invite/${inviteToken}?error=${reason}`, url.origin),
       );
     }
+
+    // LGPD evidence: the user accepted Terms+Privacy on the /invite form a
+    // few seconds ago — record it now that we know auth.uid().
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("tenant_id")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    await recordConsent({
+      userId: data.user.id,
+      tenantId: profile?.tenant_id ?? null,
+      context: "invite",
+    });
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

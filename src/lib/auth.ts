@@ -1,3 +1,6 @@
+import "server-only";
+
+import { recordConsent } from "@/lib/consent";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { getCurrentTenant } from "@/lib/tenant";
 import type { Profile, Tenant } from "@/types/database";
@@ -55,6 +58,17 @@ export async function getCurrentProfile(): Promise<Session | null> {
     console.error("[auth] failed to provision owner profile:", error);
     return null;
   }
+
+  // First owner login is implicit consent to the current Terms + Privacy
+  // versions. The /login page links both — a checkbox would create login
+  // friction for the personal trainer (1 user). Re-evaluate when SaaS launches
+  // and /login is reachable by anyone.
+  await recordConsent({
+    userId: user.id,
+    tenantId: tenant.id,
+    context: "owner_login",
+  });
+
   return { profile: created, tenant };
 }
 

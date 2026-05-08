@@ -3,13 +3,19 @@
 import { headers } from "next/headers";
 import { z } from "zod";
 
-import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimitAsync } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 const otpSchema = z.object({
   token: z.string().min(8),
   email: z.string().trim().email("Email inválido."),
   full_name: z.string().trim().min(2, "Diz teu nome completo."),
+  // Accept-or-reject is enforced client-side via the checkbox; here we just
+  // require it. The actual `consents` row is recorded inside /auth/callback
+  // once we know auth.uid() (LGPD evidence is bound to the authenticated user).
+  accept_terms: z.literal("1", {
+    error: "Você precisa aceitar os Termos e a Política pra continuar.",
+  }),
 });
 
 export type OtpState =
@@ -34,12 +40,14 @@ export async function requestInviteOtpAction(
   }
 
   // Rate-limit: 5 OTPs per hour per email + 10 per hour per IP.
+  // Uses Upstash Redis when configured (UPSTASH_REDIS_REST_URL/TOKEN), falls
+  // back to in-memory otherwise — see src/lib/rate-limit.ts.
   const ip = await clientIp();
   const HOUR = 60 * 60 * 1000;
-  if (!rateLimit(`invite:email:${parsed.data.email}`, 5, HOUR).ok) {
+  if (!(await rateLimitAsync(`invite:email:${parsed.data.email}`, 5, HOUR)).ok) {
     return { ok: false, error: "Muitas tentativas com esse email. Aguarde uma hora." };
   }
-  if (!rateLimit(`invite:ip:${ip}`, 10, HOUR).ok) {
+  if (!(await rateLimitAsync(`invite:ip:${ip}`, 10, HOUR)).ok) {
     return { ok: false, error: "Muitas tentativas. Tenta de novo daqui a uma hora." };
   }
 

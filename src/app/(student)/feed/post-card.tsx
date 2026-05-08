@@ -1,7 +1,7 @@
 "use client";
 
 import { useOptimistic, useState, useTransition } from "react";
-import { HeartIcon, MessageCircleIcon, PinIcon, SendIcon, TrashIcon } from "lucide-react";
+import { CheckIcon, MessageCircleIcon, PencilIcon, PinIcon, SendIcon, TrashIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,10 @@ import { cn } from "@/lib/utils";
 import {
   addCommentAction,
   deleteCommentAction,
+  editCommentAction,
+  REACTION_KINDS,
   toggleReactionAction,
+  type ReactionKind,
 } from "./actions";
 
 export type FeedComment = {
@@ -33,9 +36,25 @@ export type FeedPost = {
   pinned: boolean;
   published_at: string | null;
   author: { full_name: string } | null;
-  likes: number;
-  i_liked: boolean;
+  reactions: Record<ReactionKind, number>;
+  my_reaction: ReactionKind | null;
   comments: FeedComment[];
+};
+
+const REACTION_EMOJI: Record<ReactionKind, string> = {
+  like: "👍",
+  fire: "🔥",
+  heart: "❤️",
+  muscle: "💪",
+  clap: "👏",
+};
+
+const REACTION_LABEL: Record<ReactionKind, string> = {
+  like: "Curtir",
+  fire: "Fogo",
+  heart: "Amei",
+  muscle: "Força",
+  clap: "Palmas",
 };
 
 function isImageUrl(url: string): boolean {
@@ -70,32 +89,42 @@ function formatDate(iso: string | null): string {
   });
 }
 
+type ReactionState = {
+  mine: ReactionKind | null;
+  counts: Record<ReactionKind, number>;
+};
+
 export function FeedPostCard({ post }: { post: FeedPost }) {
   const [showComments, setShowComments] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
   const [comments, setComments] = useState<FeedComment[]>(post.comments);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState("");
   const [pendingReact, startReact] = useTransition();
   const [pendingComment, startComment] = useTransition();
   const [pendingDelete, startDelete] = useTransition();
+  const [pendingEdit, startEdit] = useTransition();
 
   const [optimistic, applyOptimistic] = useOptimistic<
-    { liked: boolean; count: number },
-    { liked: boolean }
+    ReactionState,
+    { next: ReactionKind | null }
   >(
-    { liked: post.i_liked, count: post.likes },
-    (state, action) => ({
-      liked: action.liked,
-      count: state.count + (action.liked ? 1 : -1),
-    }),
+    { mine: post.my_reaction, counts: post.reactions },
+    (state, action) => {
+      const counts = { ...state.counts };
+      if (state.mine) counts[state.mine] = Math.max(0, counts[state.mine] - 1);
+      if (action.next) counts[action.next] = (counts[action.next] ?? 0) + 1;
+      return { mine: action.next, counts };
+    },
   );
 
-  const onToggleLike = () => {
+  const onReact = (kind: ReactionKind) => {
     startReact(async () => {
-      const next = !optimistic.liked;
-      applyOptimistic({ liked: next });
+      const next = optimistic.mine === kind ? null : kind;
+      applyOptimistic({ next });
       const res = await toggleReactionAction({
         post_id: post.id,
-        reaction: "like",
+        reaction: kind,
       });
       if (!res.ok) toast.error(res.error ?? "Não consegui reagir.");
     });
@@ -111,7 +140,6 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
         toast.error(res.error ?? "Não consegui publicar.");
         return;
       }
-      // Optimistic append (server revalidate will overwrite with server state on next render).
       setComments((c) => [
         ...c,
         {
@@ -137,6 +165,38 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
       setComments((c) => c.filter((it) => it.id !== id));
     });
   };
+
+  const onStartEdit = (c: FeedComment) => {
+    setEditingId(c.id);
+    setEditDraft(c.content);
+  };
+
+  const onCancelEdit = () => {
+    setEditingId(null);
+    setEditDraft("");
+  };
+
+  const onSaveEdit = (id: string) => {
+    const text = editDraft.trim();
+    if (!text) return;
+    startEdit(async () => {
+      const res = await editCommentAction({ comment_id: id, content: text });
+      if (!res.ok) {
+        toast.error(res.error ?? "Não consegui editar.");
+        return;
+      }
+      setComments((list) =>
+        list.map((it) => (it.id === id ? { ...it, content: text } : it)),
+      );
+      setEditingId(null);
+      setEditDraft("");
+    });
+  };
+
+  const totalReactions = REACTION_KINDS.reduce(
+    (sum, k) => sum + (optimistic.counts[k] ?? 0),
+    0,
+  );
 
   return (
     <article className="flex flex-col gap-3 rounded-2xl border border-border bg-card/40 p-4">
@@ -185,31 +245,49 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
         )
       ) : null}
 
-      <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">
-        <button
-          type="button"
-          onClick={onToggleLike}
-          disabled={pendingReact}
-          aria-pressed={optimistic.liked}
-          aria-label={optimistic.liked ? "Remover curtida" : "Curtir"}
-          className={cn(
-            "inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors",
-            optimistic.liked
-              ? "text-[var(--brand-primary)]"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <HeartIcon
-            className={cn("size-4", optimistic.liked && "fill-current")}
-            aria-hidden
-          />
-          <span className="text-xs tabular-nums">{optimistic.count}</span>
-        </button>
+      <div className="flex flex-wrap gap-1.5 border-t border-border pt-3">
+        {REACTION_KINDS.map((kind) => {
+          const isMine = optimistic.mine === kind;
+          const count = optimistic.counts[kind] ?? 0;
+          const dimmed = optimistic.mine !== null && !isMine;
+          return (
+            <button
+              key={kind}
+              type="button"
+              onClick={() => onReact(kind)}
+              disabled={pendingReact}
+              aria-pressed={isMine}
+              aria-label={REACTION_LABEL[kind]}
+              className={cn(
+                "inline-flex h-11 min-w-[44px] items-center gap-1.5 rounded-full border px-3 text-sm transition-all active:scale-95",
+                isMine
+                  ? "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]"
+                  : dimmed
+                    ? "border-border/40 bg-background/30 text-muted-foreground/60 hover:bg-background/60 hover:text-foreground"
+                    : "border-border bg-background/50 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <span aria-hidden className="text-base leading-none">
+                {REACTION_EMOJI[kind]}
+              </span>
+              {count > 0 ? (
+                <span className="text-xs tabular-nums">{count}</span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
 
+      <footer className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
+        <span className="tabular-nums">
+          {totalReactions > 0
+            ? `${totalReactions} reaç${totalReactions === 1 ? "ão" : "ões"}`
+            : "Seja a primeira a reagir"}
+        </span>
         <button
           type="button"
           onClick={() => setShowComments((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex h-11 items-center gap-2 rounded-md px-2 text-sm transition-colors hover:text-foreground"
           aria-expanded={showComments}
         >
           <MessageCircleIcon className="size-4" aria-hidden />
@@ -221,33 +299,79 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
         <div className="flex flex-col gap-3 border-t border-border pt-3">
           {comments.length > 0 ? (
             <ul className="flex flex-col gap-2">
-              {comments.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-start gap-2 rounded-lg bg-background/50 px-3 py-2 text-sm"
-                >
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
-                      {c.author?.full_name ?? "—"}
-                      <span className="ml-2 text-[10px] normal-case tracking-normal text-muted-foreground/70">
-                        {formatDate(c.created_at)}
+              {comments.map((c) => {
+                const isEditing = editingId === c.id;
+                return (
+                  <li
+                    key={c.id}
+                    className="flex items-start gap-2 rounded-lg bg-background/50 px-3 py-2 text-sm"
+                  >
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
+                        {c.author?.full_name ?? "—"}
+                        <span className="ml-2 text-[10px] normal-case tracking-normal text-muted-foreground/70">
+                          {formatDate(c.created_at)}
+                        </span>
                       </span>
-                    </span>
-                    <p className="whitespace-pre-wrap text-foreground">{c.content}</p>
-                  </div>
-                  {c.is_mine ? (
-                    <button
-                      type="button"
-                      onClick={() => onDeleteComment(c.id)}
-                      disabled={pendingDelete || c.id.startsWith("tmp-")}
-                      aria-label="Apagar comentário"
-                      className="text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <TrashIcon className="size-3.5" />
-                    </button>
-                  ) : null}
-                </li>
-              ))}
+                      {isEditing ? (
+                        <div className="flex flex-col gap-2 pt-1">
+                          <Textarea
+                            rows={2}
+                            value={editDraft}
+                            onChange={(e) => setEditDraft(e.target.value)}
+                            maxLength={500}
+                            className="min-h-[44px] resize-none text-sm"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              onClick={() => onSaveEdit(c.id)}
+                              disabled={pendingEdit || editDraft.trim().length === 0}
+                            >
+                              <CheckIcon className="size-3.5" /> Salvar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={onCancelEdit}
+                              disabled={pendingEdit}
+                            >
+                              <XIcon className="size-3.5" /> Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap text-foreground">{c.content}</p>
+                      )}
+                    </div>
+                    {c.is_mine && !isEditing ? (
+                      <div className="flex shrink-0 items-start gap-1">
+                        <button
+                          type="button"
+                          onClick={() => onStartEdit(c)}
+                          disabled={c.id.startsWith("tmp-")}
+                          aria-label="Editar comentário"
+                          className="grid size-11 place-items-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+                        >
+                          <PencilIcon className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onDeleteComment(c.id)}
+                          disabled={pendingDelete || c.id.startsWith("tmp-")}
+                          aria-label="Apagar comentário"
+                          className="grid size-11 place-items-center text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
+                        >
+                          <TrashIcon className="size-3.5" />
+                        </button>
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
           ) : null}
 

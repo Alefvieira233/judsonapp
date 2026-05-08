@@ -38,11 +38,18 @@ function buildCsp(nonce: string): string {
       "https://*.cdninstagram.com",
       "https://i.vimeocdn.com",
     ].filter(Boolean),
-    "font-src": ["'self'", "data:", "https://fonts.gstatic.com"],
+    "font-src": [
+      "'self'",
+      "data:",
+      "https://fonts.gstatic.com",
+      "https://fonts.googleapis.com",
+    ],
     "connect-src": [
       "'self'",
       supabaseSrc,
       supabaseWs,
+      // Realtime subscriptions can fan out across *.supabase.co subdomains.
+      "wss://*.supabase.co",
       "https://vitals.vercel-insights.com",
       "https://va.vercel-scripts.com",
       // Sentry endpoints when configured. Use the Sentry tunnel for less FPs.
@@ -50,6 +57,9 @@ function buildCsp(nonce: string): string {
       "https://*.ingest.us.sentry.io",
       // Asaas: status calls e fetch do checkout link.
       "https://*.asaas.com",
+      // Google Fonts fetch from next/og handler (story image generation).
+      "https://fonts.gstatic.com",
+      "https://fonts.googleapis.com",
     ].filter(Boolean),
     "frame-src": [
       "'self'",

@@ -7,10 +7,18 @@ import { cn } from "@/lib/utils";
 
 import { activeStudentSegment, type StudentNavItem } from "./nav-routes";
 
-export function StudentNavLink({ item }: { item: StudentNavItem }) {
+export function StudentNavLink({
+  item,
+  badge = 0,
+}: {
+  item: StudentNavItem;
+  badge?: number;
+}) {
   const pathname = usePathname();
   const active = activeStudentSegment(pathname) === item.segment;
   const Icon = item.icon;
+  const showBadge = badge > 0;
+  const badgeLabel = badge > 9 ? "9+" : String(badge);
 
   return (
     <Link
@@ -27,14 +35,21 @@ export function StudentNavLink({ item }: { item: StudentNavItem }) {
           className="absolute top-0 h-1 w-12 rounded-b-full bg-[var(--brand-primary)] shadow-[0_0_12px_rgba(220,38,38,0.6)]"
         />
       ) : null}
-      <Icon
-        className={cn("size-6 transition-transform", active ? "scale-110" : "")}
-        // Filled-when-active pattern via stroke-width + fill on the active glyph.
-        // Lucide doesn't ship paired filled variants, so we lean into stroke and
-        // background fill of the indicator pill above.
-        strokeWidth={active ? 2.4 : 2}
-        aria-hidden
-      />
+      <span className="relative">
+        <Icon
+          className={cn("size-6 transition-transform", active ? "scale-110" : "")}
+          strokeWidth={active ? 2.4 : 2}
+          aria-hidden
+        />
+        {showBadge ? (
+          <span
+            aria-label={`${badge} mensagens não lidas`}
+            className="absolute -right-2 -top-1 grid min-w-[18px] place-items-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold leading-[18px] text-white shadow"
+          >
+            {badgeLabel}
+          </span>
+        ) : null}
+      </span>
       <span
         className={cn(
           "text-[11px] leading-none transition-all",

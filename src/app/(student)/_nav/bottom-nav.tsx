@@ -1,9 +1,33 @@
+import { getCurrentStudent } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 import { StudentNavLink } from "./nav-link";
 import { STUDENT_NAV_ITEMS } from "./nav-routes";
 
-export function StudentBottomNav({ className }: { className?: string }) {
+async function getUnreadChatCount(): Promise<number> {
+  const session = await getCurrentStudent();
+  if (!session) return 0;
+  const supabase = await createClient();
+  const { data: thread } = await supabase
+    .from("chat_threads")
+    .select("id")
+    .eq("tenant_id", session.tenant.id)
+    .eq("student_id", session.profile.id)
+    .maybeSingle();
+  if (!thread) return 0;
+  const { count } = await supabase
+    .from("chat_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("thread_id", thread.id)
+    .neq("sender_id", session.profile.id)
+    .is("read_at", null);
+  return count ?? 0;
+}
+
+export async function StudentBottomNav({ className }: { className?: string }) {
+  const unreadChat = await getUnreadChatCount();
+
   return (
     <nav
       aria-label="Navegação principal"
@@ -12,10 +36,13 @@ export function StudentBottomNav({ className }: { className?: string }) {
         className,
       )}
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {STUDENT_NAV_ITEMS.map((item) => (
           <li key={item.href}>
-            <StudentNavLink item={item} />
+            <StudentNavLink
+              item={item}
+              badge={item.segment === "chat" ? unreadChat : 0}
+            />
           </li>
         ))}
       </ul>

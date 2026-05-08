@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { Heatmap7Days } from "./heatmap-7-days";
 import { HeroStreak } from "./hero-streak";
+import { ShareMonthButton } from "./share-month-button";
 
 export const metadata = { title: "Hoje" };
 
@@ -345,6 +346,14 @@ export default async function StudentHomePage() {
           aria-hidden
         />
       </Link>
+
+      {totalCompleted > 0 ? (
+        <ShareMonthButton
+          profileId={profile.id}
+          studentName={profile.full_name}
+          tenantName={tenant.name}
+        />
+      ) : null}
     </section>
   );
 }

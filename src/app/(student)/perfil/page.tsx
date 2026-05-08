@@ -93,7 +93,7 @@ export default async function StudentProfilePage() {
 
   const supabase = await createClient();
 
-  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes, badgesRes] = await Promise.all([
+  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes, badgesRes, threadRes] = await Promise.all([
     supabase
       .from("workout_logs")
       .select(
@@ -136,11 +136,28 @@ export default async function StudentProfilePage() {
       .eq("user_id", profile.id)
       .order("earned_at", { ascending: false })
       .returns<{ badge_key: string; earned_at: string }[]>(),
+    supabase
+      .from("chat_threads")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("student_id", profile.id)
+      .maybeSingle(),
   ]);
   const anamnese = anamneseRes.data;
   const photoCount = photosCountRes.count ?? 0;
   const earnedBadgeKeys = new Set((badgesRes.data ?? []).map((b) => b.badge_key));
   const earnedCount = earnedBadgeKeys.size;
+
+  let unreadChat = 0;
+  if (threadRes.data?.id) {
+    const { count } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", threadRes.data.id)
+      .neq("sender_id", profile.id)
+      .is("read_at", null);
+    unreadChat = count ?? 0;
+  }
 
   const completed = logsRes.data ?? [];
   const total = completed.length;
@@ -358,6 +375,46 @@ export default async function StudentProfilePage() {
           </ul>
         )}
       </section>
+
+      <Link
+        href="/perfil/chat"
+        className={`flex items-center gap-4 rounded-2xl border p-5 transition-colors ${
+          unreadChat > 0
+            ? "border-[var(--brand-primary)]/40 bg-gradient-to-br from-[var(--brand-primary)]/15 via-card/40 to-card/30 hover:border-[var(--brand-primary)]/60"
+            : "border-border bg-card/30 hover:bg-card/60"
+        }`}
+      >
+        <span className="relative grid size-12 shrink-0 place-items-center rounded-xl bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]">
+          <MessageCircleIcon className="size-5" />
+          {unreadChat > 0 ? (
+            <span
+              aria-label={`${unreadChat} mensagens não lidas`}
+              className="absolute -right-1 -top-1 grid min-w-[20px] place-items-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold leading-[20px] text-white shadow"
+            >
+              {unreadChat > 9 ? "9+" : unreadChat}
+            </span>
+          ) : null}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            Chat com {tenantFirst.toLowerCase()}
+          </span>
+          <span className="truncate font-display text-xl leading-tight">
+            {unreadChat > 0
+              ? `${unreadChat} nova${unreadChat === 1 ? "" : "s"} mensagem${unreadChat === 1 ? "" : "s"}`
+              : "Conversa direta"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {unreadChat > 0
+              ? "Toca pra ler agora"
+              : "Pergunta, dúvida, feedback do treino"}
+          </span>
+        </div>
+        <ChevronRightIcon
+          className="size-5 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+      </Link>
 
       <Link
         href="/perfil/anamnese"

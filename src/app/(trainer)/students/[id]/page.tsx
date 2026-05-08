@@ -8,6 +8,7 @@ import {
   ClockIcon,
   FlameIcon,
   ListChecksIcon,
+  MessageCircleIcon,
   RulerIcon,
   ChevronRightIcon,
 } from "lucide-react";
@@ -181,7 +182,7 @@ export default async function StudentDetailPage({
       .returns<{ id: string; full_name: string }[]>(),
   ]);
 
-  const [anamneseRes, lastAssessRes, photosCountRes, subRes] = await Promise.all([
+  const [anamneseRes, lastAssessRes, photosCountRes, subRes, threadRes] = await Promise.all([
     supabase
       .from("anamneses")
       .select("signed_at, reviewed_at, has_heart_condition, has_chest_pain, has_dizziness, is_pregnant")
@@ -210,7 +211,24 @@ export default async function StudentDetailPage({
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("chat_threads")
+      .select("id")
+      .eq("tenant_id", session.tenant.id)
+      .eq("student_id", id)
+      .maybeSingle(),
   ]);
+
+  let unreadFromStudent = 0;
+  if (threadRes.data?.id) {
+    const { count } = await supabase
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", threadRes.data.id)
+      .neq("sender_id", session.profile.id)
+      .is("read_at", null);
+    unreadFromStudent = count ?? 0;
+  }
   const anamnese = anamneseRes.data;
   const lastAssess = lastAssessRes.data;
   const photoCount = photosCountRes.count ?? 0;
@@ -296,6 +314,34 @@ export default async function StudentDetailPage({
           }
         />
       </ul>
+
+      <Link
+        href={`/students/${student.id}/chat`}
+        className="flex items-center gap-3 rounded-xl border border-border bg-card/30 p-4 transition-colors hover:bg-card/60"
+      >
+        <span className="relative grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--brand-primary)]/15 text-[var(--brand-primary)]">
+          <MessageCircleIcon className="size-5" />
+          {unreadFromStudent > 0 ? (
+            <span
+              aria-label={`${unreadFromStudent} mensagens não lidas`}
+              className="absolute -right-1 -top-1 grid min-w-[20px] place-items-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold leading-[20px] text-white shadow"
+            >
+              {unreadFromStudent > 9 ? "9+" : unreadFromStudent}
+            </span>
+          ) : null}
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+            Chat
+          </span>
+          <span className="truncate text-sm font-medium">
+            {unreadFromStudent > 0
+              ? `${unreadFromStudent} nova${unreadFromStudent === 1 ? "" : "s"} mensagem${unreadFromStudent === 1 ? "" : "s"}`
+              : "Conversa direta"}
+          </span>
+        </div>
+        <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
+      </Link>
 
       <PlanPicker
         studentId={student.id}

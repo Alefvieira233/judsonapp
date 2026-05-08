@@ -14,6 +14,80 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_threads: {
+        Row: {
+          id: string
+          tenant_id: string
+          student_id: string
+          created_at: string
+          last_message_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          student_id: string
+          created_at?: string
+          last_message_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          student_id?: string
+          created_at?: string
+          last_message_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_threads_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_threads_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          thread_id: string
+          sender_id: string
+          content: string
+          created_at: string
+          read_at: string | null
+        }
+        Insert: {
+          id?: string
+          thread_id: string
+          sender_id: string
+          content: string
+          created_at?: string
+          read_at?: string | null
+        }
+        Update: {
+          id?: string
+          thread_id?: string
+          sender_id?: string
+          content?: string
+          created_at?: string
+          read_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "chat_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       community_comments: {
         Row: {
           content: string
@@ -1342,3 +1416,5 @@ export type BadgeEarned = Tables<"badges_earned">
 export type Subscription = Tables<"subscriptions">
 export type PaymentEvent = Tables<"payment_events">
 export type PushSubscription = Tables<"push_subscriptions">
+export type ChatThread = Tables<"chat_threads">
+export type ChatMessage = Tables<"chat_messages">

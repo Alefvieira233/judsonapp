@@ -21,6 +21,11 @@ const commentSchema = z.object({
   content: z.string().trim().min(1, "Escreva alguma coisa.").max(500, "Comentário longo demais."),
 });
 
+const editCommentSchema = z.object({
+  comment_id: z.string().uuid(),
+  content: z.string().trim().min(1, "Escreva alguma coisa.").max(500, "Comentário longo demais."),
+});
+
 export async function addCommentAction(
   input: z.infer<typeof commentSchema>,
 ): Promise<{ ok: boolean; error?: string }> {
@@ -53,6 +58,32 @@ export async function addCommentAction(
     return { ok: false, error: "Não consegui publicar." };
   }
 
+  revalidatePath("/feed");
+  revalidatePath("/community");
+  return { ok: true };
+}
+
+export async function editCommentAction(
+  input: z.infer<typeof editCommentSchema>,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getCurrentProfile();
+  if (!session) return { ok: false, error: "Sessão expirada." };
+
+  const parsed = editCommentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const supabase = await createClient();
+  // RLS update policy enforces user_id = auth.uid() — author only.
+  const { error } = await supabase
+    .from("community_comments")
+    .update({ content: parsed.data.content })
+    .eq("id", parsed.data.comment_id);
+  if (error) {
+    console.error("[feed.comment.edit]", error);
+    return { ok: false, error: "Não consegui editar." };
+  }
   revalidatePath("/feed");
   revalidatePath("/community");
   return { ok: true };
@@ -101,26 +132,33 @@ export async function toggleReactionAction(
     .maybeSingle();
   if (!post) return { ok: false, reacted: false, error: "Post não encontrado." };
 
+  // Treat reactions as single-choice per user/post: any existing reaction by
+  // this user on this post is wiped before we apply the new one. Same kind
+  // = unreact (toggle off). Different kind = swap.
   const { data: existing } = await supabase
     .from("community_reactions")
-    .select("id")
+    .select("id, reaction")
     .eq("post_id", parsed.data.post_id)
-    .eq("user_id", session.profile.id)
-    .eq("reaction", parsed.data.reaction)
-    .maybeSingle();
+    .eq("user_id", session.profile.id);
 
-  if (existing) {
+  const existingSame = existing?.find((r) => r.reaction === parsed.data.reaction);
+
+  if (existing && existing.length > 0) {
     const { error } = await supabase
       .from("community_reactions")
       .delete()
-      .eq("id", existing.id);
+      .eq("post_id", parsed.data.post_id)
+      .eq("user_id", session.profile.id);
     if (error) {
       console.error("[feed.react.delete]", error);
-      return { ok: false, reacted: true, error: "Não consegui salvar." };
+      return { ok: false, reacted: false, error: "Não consegui salvar." };
     }
-    revalidatePath("/feed");
-    revalidatePath("/community");
-    return { ok: true, reacted: false };
+    if (existingSame) {
+      // Toggle off — same kind clicked twice.
+      revalidatePath("/feed");
+      revalidatePath("/community");
+      return { ok: true, reacted: false };
+    }
   }
 
   const { error } = await supabase.from("community_reactions").insert({

@@ -7,20 +7,57 @@ import { StudentsList, type StudentItem } from "./students-list";
 
 export const metadata = { title: "Alunas" };
 
+type ThreadRow = { id: string; student_id: string };
+type UnreadRow = { thread_id: string };
+
 export default async function StudentsPage() {
   const session = await getCurrentProfile();
   if (!session) return null;
 
   const supabase = await createClient();
-  const { data: students } = await supabase
-    .from("profiles")
-    .select("id, full_name, email, phone, goal, active, joined_at")
-    .eq("tenant_id", session.tenant.id)
-    .eq("role", "student")
-    .order("joined_at", { ascending: false })
-    .returns<StudentItem[]>();
+  const [studentsRes, threadsRes] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id, full_name, email, phone, goal, active, joined_at")
+      .eq("tenant_id", session.tenant.id)
+      .eq("role", "student")
+      .order("joined_at", { ascending: false })
+      .returns<Omit<StudentItem, "unread_count">[]>(),
+    supabase
+      .from("chat_threads")
+      .select("id, student_id")
+      .eq("tenant_id", session.tenant.id)
+      .returns<ThreadRow[]>(),
+  ]);
 
-  const list = students ?? [];
+  const threads = threadsRes.data ?? [];
+  const threadByStudent = new Map(threads.map((t) => [t.student_id, t.id]));
+
+  // One round-trip for all unread message rows in this tenant: filter messages
+  // where the sender is the student (i.e. the trainer hasn't read them yet).
+  // Group in JS — avoids per-student N+1 and keeps the page server-rendered.
+  const unreadCountByThread = new Map<string, number>();
+  if (threads.length > 0) {
+    const threadIds = threads.map((t) => t.id);
+    const { data: unread } = await supabase
+      .from("chat_messages")
+      .select("thread_id")
+      .in("thread_id", threadIds)
+      .is("read_at", null)
+      .neq("sender_id", session.profile.id)
+      .returns<UnreadRow[]>();
+    for (const row of unread ?? []) {
+      unreadCountByThread.set(
+        row.thread_id,
+        (unreadCountByThread.get(row.thread_id) ?? 0) + 1,
+      );
+    }
+  }
+
+  const list: StudentItem[] = (studentsRes.data ?? []).map((s) => ({
+    ...s,
+    unread_count: unreadCountByThread.get(threadByStudent.get(s.id) ?? "") ?? 0,
+  }));
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:gap-8 md:px-6 md:py-10">

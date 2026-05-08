@@ -16,6 +16,7 @@ export type StudentItem = {
   goal: string | null;
   active: boolean | null;
   joined_at: string | null;
+  unread_count: number;
 };
 
 const FILTERS = [
@@ -97,14 +98,23 @@ export function StudentsList({ students }: { students: StudentItem[] }) {
         <ul className="grid gap-3 sm:grid-cols-2">
           {filtered.map((s) => {
             const initial = (Array.from(s.full_name)[0] ?? "?").toUpperCase();
+            const unread = s.unread_count;
             return (
               <li key={s.id}>
                 <Link
                   href={`/students/${s.id}`}
                   className="flex items-center gap-4 rounded-xl border border-border bg-card/40 p-4 transition-colors hover:bg-card"
                 >
-                  <span className="grid size-12 shrink-0 place-items-center rounded-full bg-card font-display text-lg text-foreground">
+                  <span className="relative grid size-12 shrink-0 place-items-center rounded-full bg-card font-display text-lg text-foreground">
                     {initial}
+                    {unread > 0 ? (
+                      <span
+                        aria-label={`${unread} mensagens não lidas`}
+                        className="absolute -right-1 -top-1 grid min-w-[20px] place-items-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold leading-[20px] text-white shadow"
+                      >
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    ) : null}
                   </span>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <div className="flex items-center justify-between gap-2">

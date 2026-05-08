@@ -11,12 +11,14 @@ import {
   MessageCircleIcon,
   PauseIcon,
   PlayIcon,
+  Share2Icon,
   TimerIcon,
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ShareStoryDialog } from "@/components/share-story-dialog";
 import { VideoEmbed } from "@/components/video-embed";
 import {
   Dialog,
@@ -296,6 +298,7 @@ export function WorkoutRunner({
         title={workout.title}
         elapsedSecs={elapsed}
         doneSets={doneSets}
+        logId={logId}
         onContinue={() => router.push("/home")}
       />
     );
@@ -693,13 +696,19 @@ function CompletedScreen({
   title,
   elapsedSecs,
   doneSets,
+  logId,
   onContinue,
 }: {
   title: string;
   elapsedSecs: number;
   doneSets: number;
+  logId: string | null;
   onContinue: () => void;
 }) {
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareUrl = logId ? `/api/og/story/workout?logId=${logId}` : null;
+  const shareText = `Mais um treino fechado 💪 — ${title}`;
+
   return (
     <section className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-16 text-center">
       <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
@@ -710,9 +719,31 @@ function CompletedScreen({
         {title} fechado em {formatTime(elapsedSecs)}, {doneSets} série
         {doneSets === 1 ? "" : "s"} marcada{doneSets === 1 ? "" : "s"}.
       </p>
-      <Button size="lg" className="w-full max-w-sm" onClick={onContinue}>
-        Voltar para o início
-      </Button>
+      <div className="flex w-full max-w-sm flex-col gap-2">
+        {shareUrl ? (
+          <Button
+            size="lg"
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => setShareOpen(true)}
+          >
+            <Share2Icon className="size-4" /> Compartilhar conquista
+          </Button>
+        ) : null}
+        <Button size="lg" className="w-full" onClick={onContinue}>
+          Voltar para o início
+        </Button>
+      </div>
+      {shareUrl ? (
+        <ShareStoryDialog
+          open={shareOpen}
+          onOpenChange={setShareOpen}
+          imageUrl={shareUrl}
+          title={title}
+          text={shareText}
+          filename={`treino-${logId}.png`}
+        />
+      ) : null}
     </section>
   );
 }

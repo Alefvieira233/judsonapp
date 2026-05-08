@@ -1,6 +1,6 @@
-# Status final — pós Ondas G→O
+# Status final — pós Ondas G→P (sessão completa)
 
-**Data:** 2026-05-08 · **Branch:** `main` em `ef4ee06` · **Sessão:** 4h+ de implementação por 18 subagentes em paralelo.
+**Data:** 2026-05-08 · **Branch:** `main` em `44936f2` · **Sessão:** 5h+ de implementação por 21 subagentes em paralelo.
 
 ---
 
@@ -8,14 +8,36 @@
 
 | Dimensão | Inicial (2026-05-07) | Final (2026-05-08) | Delta |
 |---|---|---|---|
-| Tech | 6.2 | **8.5** | +2.3 |
-| Features | 6.0 | **8.8** | +2.8 |
-| UI/UX | 5.5 | **7.8** | +2.3 |
+| Tech | 6.2 | **9.0** | +2.8 |
+| Features | 6.0 | **9.2** | +3.2 |
+| UI/UX | 5.5 | **8.5** | +3.0 |
 | Segurança/LGPD | 5.3 | **9.0** | +3.7 |
 | Observabilidade | — | **8.5** | (novo) |
-| **Média** | **5.75** | **8.5** | **+2.75** |
+| Acessibilidade | — | **8.5** | (novo) |
+| i18n | — | **9.0** | (novo) |
+| **Média** | **5.75** | **8.8** | **+3.05** |
 
-Os 4 vermelhos críticos (CRIT-1/2/3 + LGPD-BLOQ) estão resolvidos. SaaS multi-tenant operacional. Gamificação completa. Billing dual ativo (Asaas + Stripe).
+Os 4 vermelhos críticos (CRIT-1/2/3 + LGPD-BLOQ) estão resolvidos. SaaS multi-tenant operacional. Gamificação completa. Billing dual ativo (Asaas + Stripe). i18n PT-BR/ES com 770 keys cada (paridade total). Skip-link + reduced-motion + manifest com screenshots/shortcuts.
+
+**Métricas finais (vs ada5eaa baseline):**
+- 13 commits
+- 230 arquivos alterados
+- +29.439 / -1.646 linhas
+- 23 migrations Supabase aplicadas
+- 60 unit tests + 14 E2E specs (Chromium)
+- Lint **0 problems**, TSC **0 erros**
+
+---
+
+## Onda P — Polish final (commit `44936f2`)
+- **i18n cobertura total** — 770 keys (de 226), paridade pt-BR/ES, todas as rotas student+trainer+public traduzidas, datas locale-aware, filename neutro pra export JSON, `greetingKey()` em lib/dates.
+- **A11y**: skip-link com sr-only/focus, `id="main-content"` nos layouts, `prefers-reduced-motion` universal em globals.css.
+- **PWA polish**: manifest com display_override, 2 screenshots gerados (narrow+wide), 3 shortcuts.
+- **Push de chat**: sendMessageAction dispara push fire-and-forget pro recipient com tag dedupe `chat-<thread_id>`.
+- **Edit comment trainer**: editCommentAsOwnerAction via admin client + tenant gating.
+- **Lint warning eliminado**: eslint config com `argsIgnorePattern: "^_"` (fim do _prev em useActionState).
+- **CI E2E**: workflow GitHub Actions com Chromium + dummy env + upload artifact.
+- **Email templates**: docs/email-templates/{magic-link-pt-BR,magic-link-es,recovery-pt-BR}.html prontos pra colar no Supabase.
 
 ---
 

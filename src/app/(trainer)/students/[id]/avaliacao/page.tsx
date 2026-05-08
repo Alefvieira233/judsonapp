@@ -16,6 +16,7 @@ import { createClient } from "@/lib/supabase/server";
 
 import { deleteAssessmentAction } from "./actions";
 import { NewAssessmentForm } from "./new-assessment-form";
+import { QuickWeighButton } from "./quick-weigh";
 
 export const metadata = { title: "Avaliação física" };
 
@@ -177,6 +178,13 @@ export default async function StudentAssessmentsPage({
         description="Registra peso, percentuais e perímetros. Cada medida fica no histórico comparado com a anterior."
         back={{ href: `/students/${id}`, label: student.full_name }}
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <QuickWeighButton studentId={id} />
+        <span className="text-xs text-muted-foreground">
+          ou preencha tudo abaixo
+        </span>
+      </div>
 
       <NewAssessmentForm studentId={id} />
 

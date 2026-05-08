@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PlayIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { ArrowDownAzIcon, FlameIcon, PlayIcon, PlusIcon, SearchIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -20,17 +20,24 @@ import { ExerciseSheet } from "./exercise-sheet";
 
 const ALL = "all";
 
+type ExerciseWithUsage = ExerciseRow & { usage_count: number };
+
+type Scope = "all" | "mine" | "library";
+type Sort = "alpha" | "popular";
+
 export function ExercisesView({
   tenantId,
   initialExercises,
 }: {
   tenantId: string;
-  initialExercises: ExerciseRow[];
+  initialExercises: ExerciseWithUsage[];
 }) {
   const t = useTranslations("exercises");
   const [search, setSearch] = useState("");
   const [muscle, setMuscle] = useState<string>(ALL);
-  const [editing, setEditing] = useState<ExerciseRow | null>(null);
+  const [scope, setScope] = useState<Scope>("all");
+  const [sort, setSort] = useState<Sort>("alpha");
+  const [editing, setEditing] = useState<ExerciseWithUsage | null>(null);
   const [creating, setCreating] = useState(false);
 
   const muscleGroups = useMemo(() => {
@@ -43,8 +50,10 @@ export function ExercisesView({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return initialExercises.filter((ex) => {
+    const list = initialExercises.filter((ex) => {
       if (muscle !== ALL && ex.muscle_group !== muscle) return false;
+      if (scope === "mine" && ex.tenant_id !== tenantId) return false;
+      if (scope === "library" && ex.tenant_id !== null) return false;
       if (!q) return true;
       return (
         ex.name.toLowerCase().includes(q) ||
@@ -52,7 +61,25 @@ export function ExercisesView({
         (ex.equipment ?? "").includes(q)
       );
     });
-  }, [initialExercises, search, muscle]);
+    if (sort === "popular") {
+      // Stable sort: most-used first, ties → alpha.
+      return [...list].sort((a, b) => {
+        const d = b.usage_count - a.usage_count;
+        return d !== 0 ? d : a.name.localeCompare(b.name);
+      });
+    }
+    return list;
+  }, [initialExercises, search, muscle, scope, sort, tenantId]);
+
+  const scopeCounts = useMemo(() => {
+    let mine = 0;
+    let library = 0;
+    for (const ex of initialExercises) {
+      if (ex.tenant_id === tenantId) mine += 1;
+      else if (ex.tenant_id === null) library += 1;
+    }
+    return { all: initialExercises.length, mine, library };
+  }, [initialExercises, tenantId]);
 
   return (
     <>
@@ -86,6 +113,69 @@ export function ExercisesView({
             placeholder={t("search_placeholder")}
             className="h-11 pl-9 text-base"
           />
+        </div>
+
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex shrink-0 items-center gap-1 self-start rounded-lg border border-border bg-card/30 p-1 text-xs">
+            {([
+              { id: "all" as const, label: t("scope_all"), count: scopeCounts.all },
+              { id: "mine" as const, label: t("scope_mine"), count: scopeCounts.mine },
+              { id: "library" as const, label: t("scope_library"), count: scopeCounts.library },
+            ] as const).map((s) => {
+              const active = scope === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setScope(s.id)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 transition-colors",
+                    active
+                      ? "bg-[var(--brand-primary)] text-white"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {s.label}
+                  <span className="ml-1.5 opacity-70 tabular-nums">{s.count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            className="flex shrink-0 items-center gap-1 self-start rounded-lg border border-border bg-card/30 p-1 text-xs"
+            role="group"
+            aria-label={t("sort_label")}
+          >
+            <button
+              type="button"
+              onClick={() => setSort("alpha")}
+              aria-pressed={sort === "alpha"}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors",
+                sort === "alpha"
+                  ? "bg-background text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <ArrowDownAzIcon className="size-3.5" />
+              {t("sort_alpha")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSort("popular")}
+              aria-pressed={sort === "popular"}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-3 py-1.5 transition-colors",
+                sort === "popular"
+                  ? "bg-background text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <FlameIcon className="size-3.5" />
+              {t("sort_popular")}
+            </button>
+          </div>
         </div>
 
         <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
@@ -177,7 +267,7 @@ function ExerciseCard({
   isCustom,
   onEdit,
 }: {
-  exercise: ExerciseRow;
+  exercise: ExerciseWithUsage;
   isCustom: boolean;
   onEdit: () => void;
 }) {
@@ -218,6 +308,16 @@ function ExerciseCard({
               <>
                 <span aria-hidden>·</span>
                 <span className="capitalize">{exercise.equipment}</span>
+              </>
+            ) : null}
+            {exercise.usage_count > 0 ? (
+              <>
+                <span aria-hidden>·</span>
+                <span className="tabular-nums">
+                  {exercise.usage_count === 1
+                    ? "1 uso"
+                    : `${exercise.usage_count} usos`}
+                </span>
               </>
             ) : null}
           </div>

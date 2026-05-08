@@ -14,7 +14,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 import { createInviteAction, type InviteState } from "./actions";
@@ -36,19 +35,21 @@ export function InviteButton() {
   );
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <button
-            type="button"
-            className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
-          />
-        }
+    <>
+      {/* Controlled trigger — see note in more-sheet.tsx about Base UI render+children
+          dropping onClick on some mobile browsers. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
       >
         <UserPlusIcon className="size-4" aria-hidden /> Convidar aluna
-      </SheetTrigger>
+      </button>
 
-      <SheetContent
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
         side="bottom"
         className="rounded-t-2xl border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:max-w-md sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:rounded-2xl"
       >
@@ -82,6 +83,7 @@ export function InviteButton() {
         )}
       </SheetContent>
     </Sheet>
+    </>
   );
 }
 

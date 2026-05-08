@@ -1,23 +1,18 @@
 import Link from "next/link";
-import { FilesIcon, PlusIcon, UserIcon } from "lucide-react";
+import { FilesIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
-import { ExerciseIcon, muscleToneClass } from "@/components/exercise/exercise-icon";
-import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
-import { AssignTemplateButton } from "./assign-template";
+import { QuickStartButton, QuickStartFab } from "./quick-start-sheet";
+import { WorkoutsList, type WorkoutCard } from "./workouts-list";
 
 export async function generateMetadata() {
   const t = await getTranslations("workouts");
   return { title: t("metadata_title") };
 }
-
-const DAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
-
-type View = "all" | "templates" | "assigned";
 
 type WorkoutRow = {
   id: string;
@@ -36,34 +31,11 @@ type ItemMuscleRow = {
   exercise: { muscle_group: string | null } | null;
 };
 
-function parseView(raw: string | string[] | undefined): View {
-  if (raw === "templates" || raw === "assigned") return raw;
-  return "all";
-}
+type View = "all" | "templates" | "assigned" | "unassigned";
 
-function summarize(
-  count: number,
-  view: View,
-  t: (key: string, params?: Record<string, number>) => string,
-): string {
-  if (count === 0) {
-    if (view === "templates") return t("summary_empty_templates");
-    if (view === "assigned") return t("summary_empty_assigned");
-    return t("summary_empty_all");
-  }
-  if (view === "templates") {
-    return count === 1
-      ? t("summary_template_one_view", { count })
-      : t("summary_template_other_view", { count });
-  }
-  if (view === "assigned") {
-    return count === 1
-      ? t("summary_count_one_view", { count })
-      : t("summary_count_other_view", { count });
-  }
-  return count === 1
-    ? t("summary_count_one_total", { count })
-    : t("summary_count_other_total", { count });
+function parseView(raw: string | string[] | undefined): View {
+  if (raw === "templates" || raw === "assigned" || raw === "unassigned") return raw;
+  return "all";
 }
 
 export default async function WorkoutsPage({
@@ -80,33 +52,28 @@ export default async function WorkoutsPage({
   const t = await getTranslations("workouts");
 
   const supabase = await createClient();
-  let query = supabase
+  const { data } = await supabase
     .from("workouts")
     .select(
       `id, title, description, scheduled_days, active, updated_at, student_id,
        student:profiles!workouts_student_id_fkey(id, full_name),
        items:workout_items(count)`,
     )
-    .eq("tenant_id", session.tenant.id);
-
-  if (view === "templates") query = query.is("student_id", null);
-  if (view === "assigned") query = query.not("student_id", "is", null);
-
-  const { data } = await query
+    .eq("tenant_id", session.tenant.id)
     .order("updated_at", { ascending: false })
     .returns<WorkoutRow[]>();
 
-  const workouts = data ?? [];
+  const allWorkouts = data ?? [];
 
   // Aggregate dominant muscle groups per workout for hero icons.
   const dominantMuscleByWorkout = new Map<string, string | null>();
-  if (workouts.length > 0) {
+  if (allWorkouts.length > 0) {
     const { data: itemsData } = await supabase
       .from("workout_items")
       .select(`workout_id, exercise:exercises(muscle_group)`)
       .in(
         "workout_id",
-        workouts.map((w) => w.id),
+        allWorkouts.map((w) => w.id),
       )
       .returns<ItemMuscleRow[]>();
     const counts = new Map<string, Map<string, number>>();
@@ -132,6 +99,38 @@ export default async function WorkoutsPage({
     .order("full_name");
   const students = studentsData ?? [];
 
+  const cards: WorkoutCard[] = allWorkouts.map((w) => ({
+    id: w.id,
+    title: w.title,
+    description: w.description,
+    scheduled_days: w.scheduled_days,
+    active: w.active,
+    updated_at: w.updated_at,
+    student_id: w.student_id,
+    student: w.student,
+    item_count: w.items?.[0]?.count ?? 0,
+    dominant_mg: dominantMuscleByWorkout.get(w.id) ?? null,
+  }));
+
+  // Quick-start data: templates highlight + last student workouts to duplicate.
+  const templates = cards
+    .filter((c) => !c.student_id)
+    .slice(0, 12)
+    .map((c) => ({
+      id: c.id,
+      title: c.title,
+      exercise_count: c.item_count,
+      dominant_muscle: c.dominant_mg,
+    }));
+  const studentWorkouts = cards
+    .filter((c) => c.student_id && c.student?.full_name)
+    .slice(0, 20)
+    .map((c) => ({
+      id: c.id,
+      title: c.title,
+      student_name: c.student?.full_name ?? "—",
+    }));
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:gap-8 md:px-6 md:py-10">
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
@@ -142,11 +141,8 @@ export default async function WorkoutsPage({
           <h1 className="font-display text-4xl leading-none md:text-5xl">
             {t("title")}
           </h1>
-          <p className="text-sm text-muted-foreground">
-            {summarize(workouts.length, view, t)}
-          </p>
         </div>
-        <div className="flex flex-wrap gap-2 md:flex-nowrap">
+        <div className="hidden flex-wrap gap-2 md:flex md:flex-nowrap">
           <Link
             href="/workouts/new?template=1"
             className={buttonVariants({
@@ -157,162 +153,22 @@ export default async function WorkoutsPage({
           >
             <FilesIcon className="size-4" aria-hidden /> {t("new_template")}
           </Link>
-          <Link
-            href="/workouts/new"
-            className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
-          >
-            <PlusIcon className="size-4" aria-hidden /> {t("new_workout")}
-          </Link>
+          <QuickStartButton
+            students={students}
+            templates={templates}
+            studentWorkouts={studentWorkouts}
+          />
         </div>
       </header>
 
-      <ViewTabs current={view} />
+      <WorkoutsList workouts={cards} students={students} initialView={view} />
 
-      {workouts.length === 0 ? (
-        <EmptyState view={view} />
-      ) : (
-        <ul className="grid gap-3 md:grid-cols-2">
-          {workouts.map((w) => {
-            const isTemplate = w.student_id == null;
-            const dominantMg = dominantMuscleByWorkout.get(w.id) ?? null;
-            const itemCount = w.items?.[0]?.count ?? 0;
-            return (
-              <li key={w.id}>
-                <div
-                  className={`group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-gradient-to-br p-4 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[var(--brand-primary)]/40 ${muscleToneClass(dominantMg, null)}`}
-                >
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-[var(--brand-primary)]/8 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
-                  />
-
-                  <Link
-                    href={`/workouts/${w.id}`}
-                    className="relative flex items-start gap-3"
-                  >
-                    <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-background/60">
-                      <ExerciseIcon muscleGroup={dominantMg} size={6} />
-                    </span>
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <span className="truncate font-display text-2xl leading-tight">
-                        {w.title}
-                      </span>
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                        {isTemplate ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
-                          >
-                            {t("is_template")}
-                          </Badge>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 px-2 py-0.5 text-foreground">
-                            <UserIcon className="size-3" aria-hidden />
-                            <span className="truncate max-w-[10rem]">
-                              {w.student?.full_name ?? t("student_removed")}
-                            </span>
-                          </span>
-                        )}
-                        <span className="tabular-nums">
-                          {itemCount === 1
-                            ? t("exercise_one", { count: itemCount })
-                            : t("exercise_other", { count: itemCount })}
-                        </span>
-                      </div>
-                    </div>
-                    {w.active === false ? (
-                      <Badge variant="outline" className="shrink-0 text-muted-foreground">
-                        {t("inactive")}
-                      </Badge>
-                    ) : null}
-                  </Link>
-
-                  <div className="relative flex items-center justify-between gap-3">
-                    <DaysRow days={w.scheduled_days ?? []} />
-                    {isTemplate ? (
-                      <AssignTemplateButton
-                        workoutId={w.id}
-                        workoutTitle={w.title}
-                        students={students}
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      {/* Mobile FAB */}
+      <QuickStartFab
+        students={students}
+        templates={templates}
+        studentWorkouts={studentWorkouts}
+      />
     </div>
   );
 }
-
-async function ViewTabs({ current }: { current: View }) {
-  const t = await getTranslations("workouts");
-  const items: { id: View; label: string }[] = [
-    { id: "all", label: t("tab_all") },
-    { id: "templates", label: t("tab_templates") },
-    { id: "assigned", label: t("tab_assigned") },
-  ];
-  return (
-    <nav className="flex gap-1 rounded-xl border border-border bg-card/30 p-1">
-      {items.map((it) => {
-        const active = it.id === current;
-        const href = it.id === "all" ? "/workouts" : `/workouts?view=${it.id}`;
-        return (
-          <Link
-            key={it.id}
-            href={href}
-            className={`flex-1 rounded-lg px-3 py-2 text-center text-sm transition-colors ${
-              active
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {it.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function DaysRow({ days }: { days: number[] }) {
-  const set = new Set(days);
-  return (
-    <div className="flex gap-1">
-      {DAYS.map((label, idx) => (
-        <span
-          key={idx}
-          className={`grid size-7 place-items-center rounded-md text-xs ${
-            set.has(idx)
-              ? "bg-[var(--brand-primary)] text-white"
-              : "bg-card text-muted-foreground"
-          }`}
-        >
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-async function EmptyState({ view }: { view: View }) {
-  const t = await getTranslations("workouts");
-  const copy =
-    view === "templates"
-      ? { title: t("empty_templates_title"), body: t("empty_templates_body") }
-      : view === "assigned"
-        ? { title: t("empty_assigned_title"), body: t("empty_assigned_body") }
-        : { title: t("empty_all_title"), body: t("empty_all_body") };
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/30 px-6 py-12 text-center">
-      <span className="grid size-12 place-items-center rounded-full bg-card font-display text-xl text-foreground">
-        +
-      </span>
-      <h2 className="font-display text-2xl">{copy.title}</h2>
-      <p className="max-w-sm text-sm text-muted-foreground">{copy.body}</p>
-    </div>
-  );
-}
-

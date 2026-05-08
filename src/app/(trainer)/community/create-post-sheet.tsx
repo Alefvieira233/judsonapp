@@ -16,7 +16,6 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 
 import { createPostAction, type PostState } from "./actions";
@@ -55,19 +54,21 @@ export function CreatePostSheet() {
   }, [state, t]);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      <SheetTrigger
-        render={
-          <button
-            type="button"
-            className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
-          />
-        }
+    <>
+      {/* Controlled trigger — Base UI's <SheetTrigger render={...}> + separate
+          children was swallowing onClick on some mobile browsers. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
       >
         <PenLineIcon className="size-4" aria-hidden /> {t("new_post")}
-      </SheetTrigger>
+      </button>
 
-      <SheetContent
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
         side="bottom"
         className="max-h-[92dvh] overflow-y-auto rounded-t-2xl border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:max-w-lg sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:rounded-2xl"
       >
@@ -115,5 +116,6 @@ export function CreatePostSheet() {
         </form>
       </SheetContent>
     </Sheet>
+    </>
   );
 }

@@ -22,9 +22,11 @@ function SubmitButton({ isTemplate }: { isTemplate: boolean }) {
 export function NewWorkoutForm({
   students,
   isTemplate = false,
+  prefilledStudentId = null,
 }: {
   students: { id: string; full_name: string }[];
   isTemplate?: boolean;
+  prefilledStudentId?: string | null;
 }) {
   const [state, formAction] = useActionState<CreateWorkoutState, FormData>(
     createWorkoutAction,
@@ -58,7 +60,7 @@ export function NewWorkoutForm({
             id="student_id"
             name="student_id"
             className="h-10 rounded-lg border border-input bg-transparent px-3 text-base"
-            defaultValue=""
+            defaultValue={prefilledStudentId ?? ""}
           >
             <option value="">— Nenhuma (modelo) —</option>
             {students.map((s) => (

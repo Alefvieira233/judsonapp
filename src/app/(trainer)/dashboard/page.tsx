@@ -610,6 +610,23 @@ export default async function DashboardPage() {
 
         <div className="flex flex-col gap-3">
           <QuickLink
+            href="/students"
+            title="Convidar aluna"
+            description="Cadastra direto ou gera um link de convite."
+          />
+          <QuickLink
+            href="/community"
+            title="Postar na comunidade"
+            description="Recados e bastidores no feed da equipe."
+          />
+          {atRiskCount > 0 ? (
+            <QuickLink
+              href="/students?view=at-risk"
+              title={`${atRiskCount} ${atRiskCount === 1 ? "aluna" : "alunas"} em risco`}
+              description="Filtra direto pra quem não treinou nos últimos 7 dias."
+            />
+          ) : null}
+          <QuickLink
             href="/workouts?view=templates"
             title={t("quick_templates_title")}
             description={t("quick_templates_body")}
@@ -618,11 +635,6 @@ export default async function DashboardPage() {
             href="/plans"
             title={t("quick_plans_title")}
             description={t("quick_plans_body")}
-          />
-          <QuickLink
-            href="/community"
-            title={t("quick_community_title")}
-            description={t("quick_community_body")}
           />
           <QuickLink
             href="/exercises"

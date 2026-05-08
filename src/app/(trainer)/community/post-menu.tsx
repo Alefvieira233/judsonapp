@@ -27,14 +27,12 @@ export function PostMenu({ id, pinned, content, media_url, media_type }: Props) 
   return (
     <>
       <DropdownMenu>
+        {/* Children-only trigger — Base UI generates the button. The
+            render={<button/>} + children pattern was dropping onClick on
+            some mobile browsers (same root cause as more-sheet.tsx). */}
         <DropdownMenuTrigger
-          render={
-            <button
-              type="button"
-              aria-label="Opções do post"
-              className="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-            />
-          }
+          aria-label="Opções do post"
+          className="grid size-11 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
         >
           <MoreVerticalIcon className="size-4" />
         </DropdownMenuTrigger>

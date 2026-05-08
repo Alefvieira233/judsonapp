@@ -13,7 +13,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,23 +54,25 @@ export function CreateStudentButton() {
   }, [state, router]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <button
-            type="button"
-            className={buttonVariants({
-              size: "lg",
-              variant: "outline",
-              className: "w-full md:w-auto",
-            })}
-          />
-        }
+    <>
+      {/* Controlled trigger — see note in more-sheet.tsx about Base UI render+children
+          dropping onClick on some mobile browsers. */}
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={buttonVariants({
+          size: "lg",
+          variant: "outline",
+          className: "w-full md:w-auto",
+        })}
       >
         <UserPlus2Icon className="size-4" aria-hidden /> Cadastrar
-      </DialogTrigger>
+      </button>
 
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="font-display text-2xl">
             {state?.ok ? "Aluna cadastrada" : "Cadastrar aluna"}
@@ -141,6 +142,7 @@ export function CreateStudentButton() {
         )}
       </DialogContent>
     </Dialog>
+    </>
   );
 }
 

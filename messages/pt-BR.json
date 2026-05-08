@@ -641,7 +641,13 @@
     "empty_body": "Tente ajustar os filtros ou cadastrar um novo exercício.",
     "badge_mine": "Meu",
     "badge_library": "Biblioteca",
-    "video_label": "vídeo"
+    "video_label": "vídeo",
+    "scope_all": "Todos",
+    "scope_mine": "Meus",
+    "scope_library": "Biblioteca",
+    "sort_label": "Ordenar",
+    "sort_alpha": "A→Z",
+    "sort_popular": "Mais usados"
   },
   "settings": {
     "metadata_title": "Ajustes",

@@ -11,13 +11,14 @@ export const metadata = { title: "Novo treino" };
 export default async function NewWorkoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ template?: string }>;
+  searchParams: Promise<{ template?: string; student?: string }>;
 }) {
   const session = await getCurrentProfile();
   if (!session) return null;
 
   const sp = await searchParams;
   const isTemplate = sp.template === "1";
+  const prefilledStudent = !isTemplate ? sp.student ?? null : null;
 
   const supabase = await createClient();
   const { data: students } = isTemplate
@@ -53,7 +54,11 @@ export default async function NewWorkoutPage({
         ) : null}
       </header>
 
-      <NewWorkoutForm students={students ?? []} isTemplate={isTemplate} />
+      <NewWorkoutForm
+        students={students ?? []}
+        isTemplate={isTemplate}
+        prefilledStudentId={prefilledStudent}
+      />
     </div>
   );
 }

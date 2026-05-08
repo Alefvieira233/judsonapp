@@ -248,6 +248,92 @@ export async function cloneWorkoutToStudentAction(formData: FormData): Promise<v
   redirect(`/workouts/${created.id}`);
 }
 
+/**
+ * Like cloneWorkoutToStudentAction but returns the created id (no redirect).
+ * Used by the quick-start sheet — client side handles navigation so the sheet
+ * gets a chance to close cleanly first.
+ */
+export async function duplicateForStudentAction(
+  formData: FormData,
+): Promise<{ id?: string; error?: string }> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") {
+    return { error: "Sem permissão." };
+  }
+
+  const parsed = cloneSchema.safeParse({
+    id: formData.get("id"),
+    student_id: formData.get("student_id"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const supabase = await createClient();
+
+  const { data: source } = await supabase
+    .from("workouts")
+    .select("id, title, description, scheduled_days, active")
+    .eq("id", parsed.data.id)
+    .eq("tenant_id", session.tenant.id)
+    .maybeSingle();
+  if (!source) return { error: "Treino não encontrado." };
+
+  const { data: student } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", parsed.data.student_id)
+    .eq("tenant_id", session.tenant.id)
+    .eq("role", "student")
+    .maybeSingle();
+  if (!student) return { error: "Aluna não encontrada." };
+
+  const { data: items } = await supabase
+    .from("workout_items")
+    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes, mode")
+    .eq("workout_id", parsed.data.id)
+    .order("position");
+
+  const { data: created, error } = await supabase
+    .from("workouts")
+    .insert({
+      tenant_id: session.tenant.id,
+      student_id: parsed.data.student_id,
+      title: source.title,
+      description: source.description,
+      scheduled_days: source.scheduled_days,
+      active: source.active ?? true,
+    })
+    .select("id")
+    .single();
+  if (error || !created) {
+    log.error("workouts.duplicateForStudent.create", error, { scope: "workouts" });
+    return { error: "Não consegui duplicar." };
+  }
+
+  if (items && items.length > 0) {
+    const { error: itemsError } = await supabase.from("workout_items").insert(
+      items.map((it) => ({
+        workout_id: created.id,
+        exercise_id: it.exercise_id,
+        position: it.position,
+        sets: it.sets,
+        reps: it.reps,
+        rest_seconds: it.rest_seconds,
+        load_suggestion: it.load_suggestion,
+        notes: it.notes,
+        mode: it.mode,
+      })),
+    );
+    if (itemsError) {
+      log.error("workouts.duplicateForStudent.items", itemsError, { scope: "workouts" });
+    }
+  }
+
+  revalidatePath("/workouts");
+  return { id: created.id };
+}
+
 export async function deleteWorkoutAction(formData: FormData): Promise<void> {
   const session = await getCurrentProfile();
   if (!session || session.profile.role !== "owner") return;

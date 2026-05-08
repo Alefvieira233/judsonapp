@@ -7,10 +7,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
-// Reactions vocabulary — keep aligned with the icons in post-card.tsx.
-// Adding a new one: also bump emoji set + button row + post-card filter.
-export const REACTION_KINDS = ["like", "fire", "heart", "muscle", "clap"] as const;
-export type ReactionKind = (typeof REACTION_KINDS)[number];
+import { REACTION_KINDS } from "./reactions";
 
 const reactSchema = z.object({
   post_id: z.string().uuid(),

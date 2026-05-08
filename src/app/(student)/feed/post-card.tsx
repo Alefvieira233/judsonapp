@@ -15,10 +15,9 @@ import {
   addCommentAction,
   deleteCommentAction,
   editCommentAction,
-  REACTION_KINDS,
   toggleReactionAction,
-  type ReactionKind,
 } from "./actions";
+import { REACTION_KINDS, type ReactionKind } from "./reactions";
 
 export type FeedComment = {
   id: string;

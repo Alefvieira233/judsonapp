@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-import { REACTION_KINDS, type ReactionKind } from "./actions";
+import { REACTION_KINDS, type ReactionKind } from "./reactions";
 import { FeedPostCard, type FeedComment, type FeedPost } from "./post-card";
 
 export async function generateMetadata() {

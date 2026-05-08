@@ -1,15 +1,20 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { ChatClient, type ChatMessageView } from "@/app/(shared)/_chat/chat-client";
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Chat" };
+export async function generateMetadata() {
+  const t = await getTranslations("chat");
+  return { title: t("metadata_title") };
+}
 
 export default async function StudentChatPage() {
   const session = await getCurrentStudent();
   if (!session) redirect("/login");
   const { profile, tenant } = session;
+  const t = await getTranslations("chat");
 
   const supabase = await createClient();
 
@@ -45,7 +50,7 @@ export default async function StudentChatPage() {
         initial: peerInitial,
       }}
       backHref="/perfil"
-      emptyHint={`Manda a primeira mensagem pro ${tenantFirst}.`}
+      emptyHint={t("empty_hint", { name: tenantFirst })}
       allowCreateThread
     />
   );

@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Image from "next/image";
 import { ImageIcon, Loader2Icon, UploadIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,14 +18,16 @@ import { updateTenantAction, type TenantState } from "./actions";
 
 function SaveButton() {
   const { pending } = useFormStatus();
+  const tc = useTranslations("common");
   return (
     <Button type="submit" size="lg" disabled={pending}>
-      {pending ? "Salvando…" : "Salvar"}
+      {pending ? tc("saving") : tc("save")}
     </Button>
   );
 }
 
 export function SettingsForm({ tenant }: { tenant: Tenant }) {
+  const t = useTranslations("settings");
   const [logoUrl, setLogoUrl] = useState(tenant.logo_url ?? "");
   const [bannerUrl, setBannerUrl] = useState(tenant.banner_url ?? "");
 
@@ -34,9 +37,9 @@ export function SettingsForm({ tenant }: { tenant: Tenant }) {
   );
 
   useEffect(() => {
-    if (state?.ok) toast.success("Ajustes salvos");
+    if (state?.ok) toast.success(t("saved_toast"));
     if (state?.error) toast.error(state.error);
-  }, [state]);
+  }, [state, t]);
 
   return (
     <form action={formAction} className="flex flex-col gap-8">
@@ -44,76 +47,86 @@ export function SettingsForm({ tenant }: { tenant: Tenant }) {
       <input type="hidden" name="logo_url" value={logoUrl} />
       <input type="hidden" name="banner_url" value={bannerUrl} />
 
-      <Section title="Marca">
+      <Section title={t("section_brand")}>
         <ImageUpload
           tenantId={tenant.id}
           kind="logo"
-          label="Logo"
-          hint="Quadrado (1:1), 512px+"
+          label={t("logo_label")}
+          hint={t("logo_hint")}
           currentUrl={logoUrl}
           onUploaded={setLogoUrl}
         />
         <ImageUpload
           tenantId={tenant.id}
           kind="banner"
-          label="Capa"
-          hint="Wide (16:9), 1200px+"
+          label={t("banner_label")}
+          hint={t("banner_hint")}
           currentUrl={bannerUrl}
           onUploaded={setBannerUrl}
         />
 
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="brand_color" label="Cor primária" defaultValue={tenant.brand_color ?? ""} placeholder="#DC2626" />
+          <Field
+            id="brand_color"
+            label={t("color_primary")}
+            defaultValue={tenant.brand_color ?? ""}
+            placeholder="#DC2626"
+          />
           <Field
             id="brand_color_dark"
-            label="Cor primária (hover)"
+            label={t("color_hover")}
             defaultValue={tenant.brand_color_dark ?? ""}
             placeholder="#991B1B"
           />
         </div>
       </Section>
 
-      <Section title="Identidade">
-        <Field id="name" label="Nome" required defaultValue={tenant.name} />
-        <Field id="tagline" label="Tagline" defaultValue={tenant.tagline ?? ""} placeholder="Faz o teu que eu faço o meu." />
+      <Section title={t("section_identity")}>
+        <Field id="name" label={t("f_name")} required defaultValue={tenant.name} />
+        <Field
+          id="tagline"
+          label={t("f_tagline")}
+          defaultValue={tenant.tagline ?? ""}
+          placeholder={t("f_tagline_placeholder")}
+        />
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="bio">Bio</Label>
+          <Label htmlFor="bio">{t("f_bio")}</Label>
           <Textarea id="bio" name="bio" rows={4} defaultValue={tenant.bio ?? ""} />
         </div>
       </Section>
 
-      <Section title="Contato">
+      <Section title={t("section_contact")}>
         <Field
           id="whatsapp_number"
-          label="WhatsApp (com DDI/DDD)"
+          label={t("f_whatsapp")}
           required
           defaultValue={tenant.whatsapp_number}
-          placeholder="+5596999999999"
+          placeholder={t("f_whatsapp_placeholder")}
         />
         <Field
           id="instagram_handle"
-          label="Instagram (@)"
+          label={t("f_instagram")}
           defaultValue={tenant.instagram_handle ?? ""}
-          placeholder="judsonlobato"
+          placeholder={t("f_instagram_placeholder")}
         />
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field id="cref" label="CREF" defaultValue={tenant.cref ?? ""} />
-          <Field id="city" label="Cidade" defaultValue={tenant.city ?? ""} />
+          <Field id="cref" label={t("f_cref")} defaultValue={tenant.cref ?? ""} />
+          <Field id="city" label={t("f_city")} defaultValue={tenant.city ?? ""} />
         </div>
       </Section>
 
-      <Section title="Consultoria">
+      <Section title={t("section_consult")}>
         <Field
           id="consultation_price"
-          label="Preço (texto livre)"
+          label={t("f_consult_price")}
           defaultValue={tenant.consultation_price ?? ""}
-          placeholder="A partir de R$ 300/mês"
+          placeholder={t("f_consult_price_placeholder")}
         />
         <Field
           id="consultation_pitch"
-          label="Pitch curto"
+          label={t("f_consult_pitch")}
           defaultValue={tenant.consultation_pitch ?? ""}
-          placeholder="Treino + WhatsApp + comunidade exclusiva"
+          placeholder={t("f_consult_pitch_placeholder")}
         />
       </Section>
 
@@ -181,11 +194,12 @@ function ImageUpload({
   currentUrl: string;
   onUploaded: (url: string) => void;
 }) {
+  const t = useTranslations("settings");
   const [pending, setPending] = useState(false);
 
   const onSelect = async (file: File) => {
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("Imagem maior que 5MB.");
+      toast.error(t("upload_too_big"));
       return;
     }
     setPending(true);
@@ -199,10 +213,10 @@ function ImageUpload({
       if (error) throw error;
       const { data } = supabase.storage.from("tenant-assets").getPublicUrl(path);
       onUploaded(data.publicUrl);
-      toast.success(`${label} atualizado`);
+      toast.success(t("upload_updated", { label }));
     } catch (e) {
       console.error(e);
-      toast.error("Falha no upload.");
+      toast.error(t("upload_failed"));
     } finally {
       setPending(false);
     }
@@ -236,7 +250,7 @@ function ImageUpload({
           ) : (
             <UploadIcon className="size-4" />
           )}
-          {pending ? "Enviando…" : "Trocar"}
+          {pending ? t("upload_uploading") : t("upload_change")}
           <input
             type="file"
             accept="image/png,image/jpeg,image/webp,image/gif"

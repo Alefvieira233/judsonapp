@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeftIcon, LockIcon, TrashIcon } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { Button } from "@/components/ui/button";
 import { PhotoLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
@@ -10,14 +11,10 @@ import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { deleteProgressPhotoAction } from "./actions";
 import { UploadForm } from "./upload-form";
 
-export const metadata = { title: "Fotos de progresso" };
-
-const POSE_LABEL: Record<string, string> = {
-  front: "Frente",
-  side: "Lado",
-  back: "Costas",
-  other: "Outra",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("photos");
+  return { title: t("metadata_title") };
+}
 
 type PhotoRow = {
   id: string;
@@ -28,8 +25,8 @@ type PhotoRow = {
   notes: string | null;
 };
 
-function formatShort(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR", {
+function formatShort(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
     day: "2-digit",
     month: "short",
   });
@@ -38,6 +35,16 @@ function formatShort(iso: string): string {
 export default async function StudentPhotosPage() {
   const session = await getCurrentStudent();
   if (!session) return null;
+
+  const t = await getTranslations("photos");
+  const locale = await getLocale();
+  const trainerFirst = session.tenant.name.split(" ")[0] ?? session.tenant.name;
+  const POSE_LABEL: Record<string, string> = {
+    front: t("pose_front"),
+    side: t("pose_side"),
+    back: t("pose_back"),
+    other: t("pose_other"),
+  };
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -69,21 +76,17 @@ export default async function StudentPhotosPage() {
         href="/perfil"
         className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeftIcon className="size-3.5" /> Perfil
+        <ArrowLeftIcon className="size-3.5" /> {t("back_to_profile")}
       </Link>
 
       <header className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          Progresso
+          {t("eyebrow")}
         </span>
-        <h1 className="font-display text-3xl leading-tight">
-          Fotos de progresso
-        </h1>
+        <h1 className="font-display text-3xl leading-tight">{t("title")}</h1>
         <p className="flex items-start gap-1.5 text-sm text-muted-foreground">
           <LockIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-          <span>
-            Ficam guardadas em um espaço privado. Só você e o {session.tenant.name.split(" ")[0] ?? "personal"} podem ver. Você apaga quando quiser.
-          </span>
+          <span>{t("privacy_hint", { trainer: trainerFirst })}</span>
         </p>
       </header>
 
@@ -91,15 +94,19 @@ export default async function StudentPhotosPage() {
 
       <section className="flex flex-col gap-3">
         <header className="flex items-end justify-between gap-3">
-          <h2 className="font-display text-xl">Suas fotos</h2>
+          <h2 className="font-display text-xl">{t("your_photos")}</h2>
           <span className="text-xs text-muted-foreground">
-            {photos.length === 0 ? "" : `${photos.length} salva${photos.length === 1 ? "" : "s"}`}
+            {photos.length === 0
+              ? ""
+              : photos.length === 1
+                ? t("saved_one", { count: photos.length })
+                : t("saved_other", { count: photos.length })}
           </span>
         </header>
 
         {photos.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-card/20 px-4 py-8 text-center text-sm text-muted-foreground">
-            Nenhuma foto ainda. Suba a primeira pra começar a comparar.
+            {t("empty")}
           </p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -123,7 +130,7 @@ export default async function StudentPhotosPage() {
                       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-black">
                         <Image
                           src={photo.url}
-                          alt={`Foto de ${formatShort(photo.taken_at)}`}
+                          alt={`${formatShort(photo.taken_at, locale)}`}
                           fill
                           className="object-cover"
                           unoptimized
@@ -133,13 +140,13 @@ export default async function StudentPhotosPage() {
                     </PhotoLightbox>
                   ) : (
                     <div className="grid aspect-[3/4] place-items-center rounded-lg bg-card text-xs text-muted-foreground">
-                      Indisponível
+                      {/* falls back to common.unavailable */}
                     </div>
                   )}
 
                   <div className="flex flex-col gap-0.5 px-1">
                     <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                      {formatShort(photo.taken_at)}
+                      {formatShort(photo.taken_at, locale)}
                     </span>
                     <span className="text-sm text-foreground">
                       {poseLabel ?? "—"}
@@ -155,7 +162,7 @@ export default async function StudentPhotosPage() {
                       size="sm"
                       className="w-full text-muted-foreground"
                     >
-                      <TrashIcon className="size-3.5" /> Apagar
+                      <TrashIcon className="size-3.5" /> {t("delete")}
                     </Button>
                   </form>
                 </li>

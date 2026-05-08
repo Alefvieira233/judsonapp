@@ -21,7 +21,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { Surface } from "@/components/ui/surface";
 import { getCurrentProfile } from "@/lib/auth";
-import { startOfDay, timeAgo } from "@/lib/dates";
+import { greetingKey, startOfDay, timeAgo } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 import type { MonthlyLeaderboardRow } from "@/types/database";
 
@@ -37,13 +37,6 @@ type RecentLog = {
   workout: { title: string } | null;
   student: { full_name: string } | null;
 };
-
-function greetingKey(now: Date): "greeting_morning" | "greeting_afternoon" | "greeting_evening" {
-  const hour = now.getHours();
-  if (hour < 12) return "greeting_morning";
-  if (hour < 18) return "greeting_afternoon";
-  return "greeting_evening";
-}
 
 export default async function DashboardPage() {
   const session = await getCurrentProfile();

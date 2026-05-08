@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { ImagePlusIcon, UploadCloudIcon, XIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -18,24 +19,26 @@ import {
 
 type Pose = "front" | "side" | "back" | "other";
 
-const POSES: ReadonlyArray<{ value: Pose; label: string }> = [
-  { value: "front", label: "Frente" },
-  { value: "side", label: "Lado" },
-  { value: "back", label: "Costas" },
-  { value: "other", label: "Outra" },
-];
-
 function SubmitButton({ hasFile }: { hasFile: boolean }) {
   const { pending } = useFormStatus();
+  const t = useTranslations("photos");
   return (
     <Button type="submit" size="lg" className="w-full" disabled={pending || !hasFile}>
       <UploadCloudIcon className="size-4" />
-      {pending ? "Enviando…" : "Enviar foto"}
+      {pending ? t("sending") : t("send")}
     </Button>
   );
 }
 
 export function UploadForm() {
+  const t = useTranslations("photos");
+  const POSES: ReadonlyArray<{ value: Pose; label: string }> = [
+    { value: "front", label: t("pose_front") },
+    { value: "side", label: t("pose_side") },
+    { value: "back", label: t("pose_back") },
+    { value: "other", label: t("pose_other") },
+  ];
+
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [pose, setPose] = useState<Pose>("front");
@@ -49,7 +52,7 @@ export function UploadForm() {
       // React to result here — same render cycle as the action result, no
       // setState-in-effect antipattern.
       if (next?.ok && lastHandledStateRef.current !== next) {
-        toast.success("Foto enviada");
+        toast.success(t("sent_toast"));
         setFile(null);
         if (previewUrl) URL.revokeObjectURL(previewUrl);
         setPreviewUrl(null);
@@ -88,14 +91,14 @@ export function UploadForm() {
     >
       <div className="flex flex-col gap-2">
         <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          Nova foto
+          {t("new_photo")}
         </span>
 
         {previewUrl ? (
           <div className="relative aspect-[3/4] w-full overflow-hidden rounded-xl bg-black">
             <Image
               src={previewUrl}
-              alt="Pré-visualização"
+              alt={t("preview_alt")}
               fill
               className="object-contain"
               unoptimized
@@ -105,7 +108,7 @@ export function UploadForm() {
               type="button"
               onClick={clearFile}
               className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-black/70 text-white hover:bg-black/85"
-              aria-label="Remover foto"
+              aria-label={t("remove_photo")}
             >
               <XIcon className="size-4" />
             </button>
@@ -118,9 +121,9 @@ export function UploadForm() {
           >
             <ImagePlusIcon className="size-6" />
             <span className="font-display text-base text-foreground">
-              Escolher imagem
+              {t("pick_image")}
             </span>
-            <span className="text-[11px]">JPG, PNG ou WebP até 10 MB</span>
+            <span className="text-[11px]">{t("size_hint")}</span>
           </button>
         )}
 
@@ -136,7 +139,7 @@ export function UploadForm() {
 
       <div className="flex flex-col gap-2">
         <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          Pose
+          {t("pose")}
         </span>
         <div className="flex flex-wrap gap-2">
           {POSES.map((p) => (
@@ -159,7 +162,7 @@ export function UploadForm() {
 
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="weight_kg">Peso (opcional)</Label>
+          <Label htmlFor="weight_kg">{t("weight_optional")}</Label>
           <Input
             id="weight_kg"
             name="weight_kg"
@@ -168,18 +171,18 @@ export function UploadForm() {
             step="0.1"
             min="20"
             max="400"
-            placeholder="kg"
+            placeholder={t("weight_placeholder")}
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="notes">Observações (opcional)</Label>
+        <Label htmlFor="notes">{t("notes_optional")}</Label>
         <Textarea
           id="notes"
           name="notes"
           rows={2}
-          placeholder="Ex: pós-treino, manhã"
+          placeholder={t("notes_placeholder")}
           maxLength={500}
         />
       </div>

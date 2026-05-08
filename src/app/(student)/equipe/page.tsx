@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeftIcon, TrophyIcon } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { EmptyState } from "@/components/ui/empty-state";
 import { getCurrentStudent } from "@/lib/auth";
@@ -9,24 +10,25 @@ import type { MonthlyLeaderboardRow } from "@/types/database";
 
 import { LeaderboardOptToggle } from "./leaderboard-opt-toggle";
 
-export const metadata = {
-  title: "Top da equipe",
-};
+export async function generateMetadata() {
+  const t = await getTranslations("team");
+  return { title: t("metadata_title") };
+}
 
-const MONTH_NAMES = [
-  "janeiro",
-  "fevereiro",
-  "março",
-  "abril",
-  "maio",
-  "junho",
-  "julho",
-  "agosto",
-  "setembro",
-  "outubro",
-  "novembro",
-  "dezembro",
-];
+const MONTH_KEYS = [
+  "month_january",
+  "month_february",
+  "month_march",
+  "month_april",
+  "month_may",
+  "month_june",
+  "month_july",
+  "month_august",
+  "month_september",
+  "month_october",
+  "month_november",
+  "month_december",
+] as const;
 
 const MEDALS: Record<number, string> = { 1: "🥇", 2: "🥈", 3: "🥉" };
 
@@ -34,10 +36,11 @@ export default async function EquipePage() {
   const session = await getCurrentStudent();
   if (!session) return null;
   const { profile } = session;
+  const t = await getTranslations("team");
 
   const supabase = await createClient();
   const now = new Date();
-  const monthLabel = MONTH_NAMES[now.getMonth()] ?? "este mês";
+  const monthLabel = t(MONTH_KEYS[now.getMonth()] ?? "month_default");
 
   const { data: rows } = await supabase
     .from("monthly_leaderboard")
@@ -54,29 +57,29 @@ export default async function EquipePage() {
       <header className="flex items-center gap-3">
         <Link
           href="/perfil"
-          aria-label="Voltar"
+          aria-label={t("back")}
           className="grid size-10 place-items-center rounded-full border border-border bg-card/30 text-muted-foreground hover:bg-card/60"
         >
           <ArrowLeftIcon className="size-4" />
         </Link>
         <div className="flex min-w-0 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Equipe
+            {t("eyebrow")}
           </span>
           <h1 className="flex items-center gap-2 truncate font-display text-3xl leading-tight">
             <TrophyIcon className="size-6 text-[var(--brand-primary)]" />
-            Top da equipe
+            {t("title")}
           </h1>
           <p className="text-xs text-muted-foreground">
-            Mês de {monthLabel} · ranking público dentro da escola
+            {t("subtitle", { month: monthLabel })}
           </p>
         </div>
       </header>
 
       {list.length === 0 ? (
         <EmptyState
-          title="Ninguém treinou ainda este mês"
-          description="Sê a primeira do ranking — abre o teu treino de hoje e bora começar."
+          title={t("empty_title")}
+          description={t("empty_body")}
         />
       ) : (
         <ol className="flex flex-col gap-2">
@@ -101,7 +104,7 @@ export default async function EquipePage() {
                       ? "bg-[var(--brand-primary)]/15 text-foreground"
                       : "bg-card text-muted-foreground",
                   ].join(" ")}
-                  aria-label={`Posição ${row.position}`}
+                  aria-label={t("position_aria", { n: row.position })}
                 >
                   {positionLabel}
                 </span>
@@ -125,13 +128,14 @@ export default async function EquipePage() {
                     {row.full_name}
                     {isMe ? (
                       <span className="ml-2 text-[10px] uppercase tracking-[0.2em] text-[var(--brand-primary)]">
-                        você
+                        {t("you")}
                       </span>
                     ) : null}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    {row.workouts_this_month}{" "}
-                    {row.workouts_this_month === 1 ? "treino" : "treinos"} no mês
+                    {row.workouts_this_month === 1
+                      ? t("workouts_one", { count: row.workouts_this_month })
+                      : t("workouts_other", { count: row.workouts_this_month })}
                   </span>
                 </div>
               </li>
@@ -142,7 +146,7 @@ export default async function EquipePage() {
 
       <div className="mt-2 flex flex-col gap-3 border-t border-border pt-5">
         <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          Privacidade
+          {t("privacy_eyebrow")}
         </span>
         <LeaderboardOptToggle initialShare={profile.share_in_leaderboard ?? true} />
       </div>

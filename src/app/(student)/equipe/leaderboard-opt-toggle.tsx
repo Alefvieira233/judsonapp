@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { toggleLeaderboardOptInAction, type ToggleLeaderboardState } from "./actions";
 
@@ -9,6 +10,7 @@ type Props = {
 };
 
 export function LeaderboardOptToggle({ initialShare }: Props) {
+  const t = useTranslations("team");
   const [state, formAction] = useActionState<ToggleLeaderboardState, FormData>(
     toggleLeaderboardOptInAction,
     undefined,
@@ -23,11 +25,9 @@ export function LeaderboardOptToggle({ initialShare }: Props) {
       className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/30 px-4 py-3"
     >
       <div className="flex flex-col">
-        <span className="font-display text-base">Aparecer no ranking</span>
+        <span className="font-display text-base">{t("leaderboard_title")}</span>
         <span className="text-xs text-muted-foreground">
-          {checked
-            ? "Tu apareces na lista pública da equipe."
-            : "Tu fica fora do ranking. Pode reativar quando quiser."}
+          {checked ? t("leaderboard_on") : t("leaderboard_off")}
         </span>
       </div>
 

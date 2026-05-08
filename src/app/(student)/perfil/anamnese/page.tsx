@@ -1,16 +1,22 @@
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { AnamneseForm } from "./anamnese-form";
 
-export const metadata = { title: "Anamnese" };
+export async function generateMetadata() {
+  const t = await getTranslations("anamnese");
+  return { title: t("metadata_title") };
+}
 
 export default async function AnamnesePage() {
   const session = await getCurrentStudent();
   if (!session) return null;
+  const t = await getTranslations("anamnese");
+  const trainerFirst = session.tenant.name.split(" ")[0] ?? session.tenant.name;
 
   const supabase = await createClient();
   const { data } = await supabase
@@ -44,25 +50,23 @@ export default async function AnamnesePage() {
         href="/perfil"
         className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeftIcon className="size-3.5" /> Perfil
+        <ArrowLeftIcon className="size-3.5" /> {t("back_to_profile")}
       </Link>
 
       <header className="flex flex-col gap-1">
         <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          Saúde · PAR-Q+
+          {t("eyebrow")}
         </span>
-        <h1 className="font-display text-3xl leading-tight">
-          Anamnese
-        </h1>
+        <h1 className="font-display text-3xl leading-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Antes de prescrever treino, o Judson precisa entender teu histórico de
-          saúde. Leva uns 5 minutos. Tudo é confidencial — só tu e ele veem.
+          {t("subtitle", { trainer: trainerFirst })}
         </p>
       </header>
 
       <AnamneseForm
         initial={initial}
         alreadySigned={!!data?.signed_at}
+        trainer={trainerFirst}
       />
     </section>
   );

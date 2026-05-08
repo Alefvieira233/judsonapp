@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useActionState, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { CameraIcon, ImagePlusIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,10 +16,11 @@ import {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useTranslations("editProfile");
   return (
     <Button type="submit" size="sm" disabled={pending}>
       <CameraIcon className="size-3.5" />
-      {pending ? "Enviando…" : "Trocar foto"}
+      {pending ? t("avatar_uploading") : t("avatar_change")}
     </Button>
   );
 }
@@ -30,6 +32,7 @@ export function AvatarUploader({
   initialAvatarUrl: string | null;
   initial: string;
 }) {
+  const t = useTranslations("editProfile");
   const [previewUrl, setPreviewUrl] = useState<string | null>(initialAvatarUrl);
   const lastHandledStateRef = useRef<UploadAvatarState>(undefined);
 
@@ -40,7 +43,7 @@ export function AvatarUploader({
       // antipattern. Same render cycle, so the DOM is consistent.
       if (next?.ok && lastHandledStateRef.current !== next) {
         setPreviewUrl(next.url);
-        toast.success("Foto atualizada");
+        toast.success(t("avatar_updated"));
       } else if (next?.ok === false && lastHandledStateRef.current !== next) {
         toast.error(next.error);
       }
@@ -69,7 +72,7 @@ export function AvatarUploader({
         {previewUrl ? (
           <Image
             src={previewUrl}
-            alt="Foto de perfil"
+            alt={t("avatar_alt")}
             fill
             className="object-cover"
             unoptimized
@@ -95,12 +98,10 @@ export function AvatarUploader({
           onClick={() => inputRef.current?.click()}
         >
           <ImagePlusIcon className="size-3.5" />
-          Escolher imagem
+          {t("avatar_pick")}
         </Button>
         <SubmitButton />
-        <span className="text-[10px] text-muted-foreground">
-          JPG, PNG ou WebP até 3 MB.
-        </span>
+        <span className="text-[10px] text-muted-foreground">{t("avatar_hint")}</span>
       </div>
     </form>
   );

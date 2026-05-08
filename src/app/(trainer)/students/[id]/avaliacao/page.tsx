@@ -1,10 +1,11 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, RulerIcon, TrashIcon, ZapIcon } from "lucide-react";
+import { RulerIcon, TrashIcon, ZapIcon } from "lucide-react";
 import { z } from "zod";
 
 import { Sparkline } from "@/components/charts";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth";
 import {
   type MuscleGroup,
@@ -170,25 +171,12 @@ export default async function StudentAssessmentsPage({
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 md:px-6 md:py-10">
-      <Link
-        href={`/students/${id}`}
-        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-3.5" /> {student.full_name}
-      </Link>
-
-      <header className="flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          Avaliação física
-        </span>
-        <h1 className="font-display text-3xl leading-tight">
-          {student.full_name}
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Registra peso, percentuais e perímetros. Cada medida fica no histórico
-          comparado com a anterior.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Avaliação física"
+        title={student.full_name}
+        description="Registra peso, percentuais e perímetros. Cada medida fica no histórico comparado com a anterior."
+        back={{ href: `/students/${id}`, label: student.full_name }}
+      />
 
       <NewAssessmentForm studentId={id} />
 
@@ -250,10 +238,10 @@ export default async function StudentAssessmentsPage({
             })}
           </ul>
         ) : (
-          <p className="rounded-xl border border-dashed border-border bg-card/20 px-4 py-6 text-center text-sm text-muted-foreground">
-            Ainda sem snapshots. O cron diário começa a registrar a partir de
-            hoje — a evolução aparece aqui em alguns dias.
-          </p>
+          <EmptyState
+            title="Ainda sem snapshots"
+            description="O cron diário começa a registrar a partir de hoje — a evolução aparece aqui em alguns dias."
+          />
         )}
       </section>
 
@@ -262,9 +250,7 @@ export default async function StudentAssessmentsPage({
           <RulerIcon className="size-5 text-[var(--brand-primary)]" /> Histórico
         </h2>
         {list.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border bg-card/20 px-4 py-8 text-center text-sm text-muted-foreground">
-            Sem avaliações ainda.
-          </p>
+          <EmptyState title="Sem avaliações ainda" />
         ) : (
           <ul className="flex flex-col gap-3">
             {list.map((row, idx) => {

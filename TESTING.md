@@ -91,11 +91,19 @@ testing pass, captured here so we don't forget:
 
 ## CI
 
-`/.github/workflows/test.yml` runs `npm ci` → `npm run lint` → `npm run test`
-on every push and PR. The Playwright suite is **not** in CI yet — the dev
-server boot pushes the run past 2 minutes on a cold GitHub runner, and the
-E2E layer is still meant for local pre-deploy smoke. To enable, add a job
-that runs `npx playwright install --with-deps chromium` then `npm run e2e`.
+`/.github/workflows/test.yml` has two jobs:
+
+- **unit** — `npm ci` → `npm run lint` → `npm run test` on every push and PR.
+- **e2e** — runs after `unit` passes. Installs Chromium with deps, then
+  `npm run e2e` against the dev server. Uses dummy Supabase env vars
+  (`NEXT_PUBLIC_SUPABASE_URL=https://example.supabase.co`, dummy keys) — the
+  current 5 E2E flows render the public surface (landing, legal, login form,
+  invite 404, static routes smoke) and don't require a live Supabase. On
+  failure, the Playwright HTML report is uploaded as an artifact for 7 days.
+
+If you add a flow that needs a real Supabase, gate it with
+`test.skip(!process.env.E2E_LIVE, "needs live supabase")` and document it
+under "Not covered (yet)" — keep the default CI run dummy-env-safe.
 
 ## Windows quirks
 

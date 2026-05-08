@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Recupera teu acesso</title>
+  </head>
+  <body style="margin:0;padding:0;background:#0a0a0a;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#f5f5f5;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0a0a0a;padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;background:#141414;border:1px solid #262626;border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="background:#DC2626;padding:28px 24px;text-align:center;">
+                <h1 style="margin:0;font-family:'Bebas Neue','Impact','Arial Narrow',system-ui,sans-serif;font-size:32px;letter-spacing:0.06em;color:#ffffff;text-transform:uppercase;line-height:1;">
+                  {{ .SiteName }}
+                </h1>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px 24px 8px 24px;">
+                <h2 style="margin:0 0 12px 0;font-size:22px;font-weight:700;color:#f5f5f5;line-height:1.25;">
+                  Redefinir senha
+                </h2>
+                <p style="margin:0 0 24px 0;font-size:16px;line-height:1.55;color:#d4d4d4;">
+                  Recebemos um pedido pra trocar a tua senha no {{ .SiteName }}. Clica no botão abaixo pra escolher uma nova. O link vale 1 hora.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 24px 24px 24px;">
+                <a href="{{ .ConfirmationURL }}"
+                   style="display:inline-block;background:#DC2626;color:#ffffff;text-decoration:none;font-weight:700;font-size:16px;padding:14px 32px;border-radius:10px;letter-spacing:0.02em;">
+                  Redefinir senha
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 24px 24px 24px;">
+                <p style="margin:0;font-size:13px;line-height:1.5;color:#737373;">
+                  Se o botão não funcionar, copia e cola esse endereço no navegador:
+                </p>
+                <p style="margin:8px 0 0 0;font-size:12px;line-height:1.5;color:#a3a3a3;word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#DC2626;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 24px 28px 24px;border-top:1px solid #262626;">
+                <p style="margin:0;font-size:12px;line-height:1.5;color:#737373;text-align:center;">
+                  Se não foi você, ignora esse email — sua senha continua a mesma.<br />
+                  Enviado por <a href="{{ .SiteURL }}" style="color:#a3a3a3;text-decoration:none;">{{ .SiteURL }}</a> para {{ .Email }}.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

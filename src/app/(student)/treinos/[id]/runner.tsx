@@ -15,6 +15,7 @@ import {
   TimerIcon,
   XIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,7 @@ export function WorkoutRunner({
   workout: RunnerWorkout;
   items: RunnerItem[];
 }) {
+  const t = useTranslations("runner");
   const router = useRouter();
   const [logId, setLogId] = useState<string | null>(null);
   const [starting, startTransition] = useTransition();
@@ -189,7 +191,7 @@ export function WorkoutRunner({
     startTransition(async () => {
       const res = await startWorkoutAction({ workout_id: workout.id });
       if (!res?.ok) {
-        toast.error(res?.error ?? "Não consegui iniciar.");
+        toast.error(res?.error ?? t("start_error"));
         return;
       }
       setLogId(res.logId);
@@ -240,16 +242,16 @@ export function WorkoutRunner({
       });
       if (!res.ok) {
         updateSet(key, { done: false });
-        toast.error(res.error ?? "Não consegui salvar.");
+        toast.error(res.error ?? t("log_set_error"));
         return;
       }
       // PR detected server-side — celebra com toast brand. Confetti completo
       // fica reservado pra conclusão do treino; aqui só damos o sinal claro.
       if (res.isPR && res.exerciseName && res.newMax) {
-        toast.success(`🏆 PR! ${res.exerciseName} — ${res.newMax}kg`, {
+        toast.success(t("pr_toast", { exercise: res.exerciseName, kg: res.newMax }), {
           description:
             res.prevMax && res.prevMax > 0
-              ? `Recorde anterior: ${res.prevMax}kg`
+              ? t("pr_prev", { kg: res.prevMax })
               : undefined,
           duration: 4500,
         });
@@ -276,7 +278,7 @@ export function WorkoutRunner({
         notes: data.notes.trim() ? data.notes.trim() : null,
       });
       if (!res.ok) {
-        toast.error(res.error ?? "Não consegui concluir.");
+        toast.error(res.error ?? t("complete_error"));
         return;
       }
       setCompleteOpen(false);
@@ -321,7 +323,7 @@ export function WorkoutRunner({
     <>
       <header className="flex flex-col gap-2">
         <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-          {running ? "Em execução" : "Treino"}
+          {running ? t("running") : t("workout")}
         </span>
         <div className="flex items-end justify-between gap-3">
           <h1 className="font-display text-3xl leading-tight">{workout.title}</h1>
@@ -335,7 +337,7 @@ export function WorkoutRunner({
           <p className="text-sm text-muted-foreground">{workout.description}</p>
         ) : null}
         <p className="text-xs text-muted-foreground">
-          {doneSets}/{totalSets} séries · {items.length} exercícios
+          {t("progress_one", { done: doneSets, total: totalSets, items: items.length })}
         </p>
         {running && totalSets > 0 ? (
           <div
@@ -344,7 +346,7 @@ export function WorkoutRunner({
             aria-valuenow={doneSets}
             aria-valuemax={totalSets}
             aria-valuemin={0}
-            aria-label="Progresso do treino"
+            aria-label={t("progress_aria")}
           >
             <div
               className="h-full bg-[var(--brand-primary)] transition-[width] duration-300 ease-out"
@@ -358,13 +360,10 @@ export function WorkoutRunner({
 
       {!running ? (
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/40 p-5">
-          <p className="font-display text-xl">Pronta?</p>
-          <p className="text-sm text-muted-foreground">
-            Toca em iniciar pra começar a marcar as séries. Cada série salva
-            automaticamente.
-          </p>
+          <p className="font-display text-xl">{t("ready_title")}</p>
+          <p className="text-sm text-muted-foreground">{t("ready_body")}</p>
           <Button size="lg" className="w-full" onClick={handleStart} disabled={starting}>
-            {starting ? "Iniciando…" : "Iniciar treino"}
+            {starting ? t("starting") : t("start")}
           </Button>
         </div>
       ) : null}
@@ -378,7 +377,7 @@ export function WorkoutRunner({
             <div className="flex items-start justify-between gap-3">
               <div className="flex min-w-0 flex-col gap-0.5">
                 <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                  {item.muscle_group ?? "Exercício"}
+                  {item.muscle_group ?? t("exercise_default")}
                 </span>
                 <span className="font-display text-2xl leading-tight">
                   {item.exercise_name}
@@ -387,7 +386,7 @@ export function WorkoutRunner({
                   {item.sets}x {item.reps}
                   {item.load_suggestion ? ` · ${item.load_suggestion}` : ""}
                   {item.last_load
-                    ? ` · última ${item.last_load}kg`
+                    ? ` · ${t("last_load", { kg: item.last_load })}`
                     : ""}
                 </span>
                 {item.notes ? (
@@ -455,14 +454,16 @@ export function WorkoutRunner({
             disabled={!allDone && doneSets === 0}
             onClick={() => setCompleteOpen(true)}
           >
-            {allDone ? "Concluir treino" : `Concluir mesmo assim (${doneSets}/${totalSets})`}
+            {allDone
+              ? t("complete")
+              : t("complete_partial", { done: doneSets, total: totalSets })}
           </Button>
           <button
             type="button"
             onClick={() => setAbortOpen(true)}
             className="text-center text-xs text-muted-foreground underline-offset-4 hover:underline"
           >
-            Cancelar treino
+            {t("cancel_workout")}
           </button>
         </div>
       ) : null}
@@ -470,11 +471,8 @@ export function WorkoutRunner({
       <Dialog open={abortOpen} onOpenChange={setAbortOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancelar treino?</DialogTitle>
-            <DialogDescription>
-              Os registros que tu já marcou ficam salvos no histórico. Volta
-              quando quiser.
-            </DialogDescription>
+            <DialogTitle>{t("cancel_title")}</DialogTitle>
+            <DialogDescription>{t("cancel_body")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button
@@ -483,7 +481,7 @@ export function WorkoutRunner({
               className="w-full sm:w-auto"
               onClick={() => setAbortOpen(false)}
             >
-              Continuar treinando
+              {t("cancel_keep")}
             </Button>
             <Button
               variant="destructive"
@@ -491,7 +489,7 @@ export function WorkoutRunner({
               className="w-full sm:w-auto"
               onClick={confirmAbort}
             >
-              Sim, cancelar
+              {t("cancel_confirm")}
             </Button>
           </div>
         </DialogContent>

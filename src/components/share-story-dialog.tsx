@@ -58,6 +58,9 @@ export function ShareStoryDialog({
       downloadBlob(blob, filename);
       toast.success("Imagem salva");
     } catch (err) {
+      // Client component: `@/lib/logger` is server-only. Console.error here
+      // surfaces in Sentry's browser SDK (auto-instruments console) and Vercel
+      // runtime logs — kept intentionally.
       console.error("[share-story.download]", err);
       toast.error("Não consegui baixar a imagem.");
     } finally {
@@ -87,6 +90,7 @@ export function ShareStoryDialog({
     } catch (err) {
       // AbortError means the user cancelled the share sheet — not an error.
       if ((err as DOMException)?.name !== "AbortError") {
+        // See note above — client-side, intentional console.error.
         console.error("[share-story.share]", err);
         toast.error("Não consegui compartilhar.");
       }

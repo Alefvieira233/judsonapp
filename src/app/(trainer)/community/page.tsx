@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth";
@@ -6,7 +8,10 @@ import { createClient } from "@/lib/supabase/server";
 import { CreatePostSheet } from "./create-post-sheet";
 import { PostCard, type TrainerComment, type TrainerPost } from "./post-card";
 
-export const metadata = { title: "Comunidade" };
+export async function generateMetadata() {
+  const t = await getTranslations("community");
+  return { title: t("metadata_title") };
+}
 
 type PostRow = {
   id: string;
@@ -31,6 +36,7 @@ type CommentRow = {
 export default async function CommunityPage() {
   const session = await getCurrentProfile();
   if (!session) return null;
+  const t = await getTranslations("community");
 
   const supabase = await createClient();
   const { data: posts } = await supabase
@@ -98,24 +104,24 @@ export default async function CommunityPage() {
     comments: commentsByPost.get(p.id) ?? [],
   }));
 
+  const description =
+    cards.length === 0
+      ? t("empty_subtitle")
+      : cards.length === 1
+        ? t("summary_one", { count: cards.length })
+        : t("summary_other", { count: cards.length });
+
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 md:gap-8 md:px-6 md:py-10">
       <PageHeader
-        eyebrow="Painel"
-        title="Comunidade"
-        description={
-          cards.length === 0
-            ? "Nada publicado ainda. Faça o primeiro post."
-            : `${cards.length} post${cards.length === 1 ? "" : "s"} publicado${cards.length === 1 ? "" : "s"}.`
-        }
+        eyebrow={t("metadata_title")}
+        title={t("metadata_title")}
+        description={description}
         trailing={<CreatePostSheet />}
       />
 
       {cards.length === 0 ? (
-        <EmptyState
-          title="A comunidade começa aqui"
-          description="Posts aparecem no app das alunas. Solte uma atualização, dica do dia ou bastidor — e fixe os mais importantes pra ficarem no topo."
-        />
+        <EmptyState title={t("empty_title")} description={t("empty_body")} />
       ) : (
         <ul className="flex flex-col gap-3">
           {cards.map((p) => (

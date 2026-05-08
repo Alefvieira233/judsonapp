@@ -1,10 +1,11 @@
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, ImageIcon, ScaleIcon } from "lucide-react";
+import { ImageIcon, ScaleIcon } from "lucide-react";
 import { z } from "zod";
 
 import { PhotoLightbox, type LightboxPhoto } from "@/components/photo-lightbox";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 
@@ -135,30 +136,14 @@ export default async function StudentPhotosPage({
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-6 md:px-6 md:py-10">
-      <Link
-        href={`/students/${id}`}
-        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-3.5" /> {student.full_name}
-      </Link>
+      <PageHeader
+        eyebrow="Fotos de progresso"
+        title={student.full_name}
+        description="Apenas a aluna pode apagar — você consegue visualizar e comparar."
+        back={{ href: `/students/${id}`, label: student.full_name }}
+      />
 
-      <header className="flex flex-col gap-1">
-        <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-          Fotos de progresso
-        </span>
-        <h1 className="font-display text-3xl leading-tight">
-          {student.full_name}
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          Apenas a aluna pode apagar — você consegue visualizar e comparar.
-        </p>
-      </header>
-
-      {photos.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-border bg-card/20 px-4 py-8 text-center text-sm text-muted-foreground">
-          Sem fotos ainda.
-        </p>
-      ) : null}
+      {photos.length === 0 ? <EmptyState title="Sem fotos ainda" /> : null}
 
       {comparisons.length > 0 ? (
         <section className="flex flex-col gap-3">

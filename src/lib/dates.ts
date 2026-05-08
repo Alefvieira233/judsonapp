@@ -50,3 +50,20 @@ export function timeAgo(iso: string): string {
   if (days < 7) return `há ${days} dias`;
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
+
+export type GreetingKey =
+  | "greeting_morning"
+  | "greeting_afternoon"
+  | "greeting_evening";
+
+/**
+ * Returns the i18n key for the time-of-day greeting. Consumers pass it to
+ * `t()` so the localized string ("Bom dia"/"Buenos días"/etc) lives in the
+ * messages JSON, not here.
+ */
+export function greetingKey(now: Date = new Date()): GreetingKey {
+  const hour = now.getHours();
+  if (hour < 12) return "greeting_morning";
+  if (hour < 18) return "greeting_afternoon";
+  return "greeting_evening";
+}

@@ -1,18 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 
 import { subscribeToPlanAction } from "./actions";
 
 type Method = "PIX" | "CREDIT_CARD" | "BOLETO";
-
-const METHODS: { id: Method; label: string }[] = [
-  { id: "PIX", label: "Pix recorrente" },
-  { id: "CREDIT_CARD", label: "Cartão" },
-  { id: "BOLETO", label: "Boleto" },
-];
 
 export function SubscribeButtons({
   planId,
@@ -21,6 +16,13 @@ export function SubscribeButtons({
   planId: string;
   highlight: boolean;
 }) {
+  const t = useTranslations("plans");
+  const METHODS: { id: Method; label: string }[] = [
+    { id: "PIX", label: t("method_pix") },
+    { id: "CREDIT_CARD", label: t("method_card") },
+    { id: "BOLETO", label: t("method_boleto") },
+  ];
+
   const [pending, start] = useTransition();
   const [busy, setBusy] = useState<Method | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -59,7 +61,7 @@ export function SubscribeButtons({
             disabled={pending}
             className="w-full"
           >
-            {busy === m.id ? "Abrindo..." : m.label}
+            {busy === m.id ? t("method_opening") : m.label}
           </Button>
         ))}
       </div>

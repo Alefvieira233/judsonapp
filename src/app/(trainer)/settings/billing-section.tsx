@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -15,19 +16,10 @@ import {
   type CancelState,
 } from "./billing-actions";
 
-const STATUS_LABEL: Record<string, string> = {
-  active: "Ativa",
-  trialing: "Trial",
-  past_due: "Pagamento atrasado",
-  canceled: "Cancelada",
-  incomplete: "Aguardando pagamento",
-  unpaid: "Não paga",
-};
-
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "—";
   try {
-    return new Intl.DateTimeFormat("pt-BR", {
+    return new Intl.DateTimeFormat(locale, {
       day: "2-digit",
       month: "short",
       year: "numeric",
@@ -37,8 +29,8 @@ function formatDate(iso: string | null): string {
   }
 }
 
-function formatPrice(cents: number): string {
-  return new Intl.NumberFormat("pt-BR", {
+function formatPrice(cents: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "BRL",
   }).format(cents / 100);
@@ -46,18 +38,20 @@ function formatPrice(cents: number): string {
 
 function PortalButton() {
   const { pending } = useFormStatus();
+  const t = useTranslations("settings");
   return (
     <Button type="submit" size="lg" variant="outline" disabled={pending}>
-      {pending ? "Abrindo…" : "Gerenciar pagamento"}
+      {pending ? t("billing_portal_loading") : t("billing_portal")}
     </Button>
   );
 }
 
 function CancelButton() {
   const { pending } = useFormStatus();
+  const t = useTranslations("settings");
   return (
     <Button type="submit" size="lg" variant="destructive" disabled={pending}>
-      {pending ? "Cancelando…" : "Confirmar cancelamento"}
+      {pending ? t("billing_cancelling") : t("billing_cancel_confirm")}
     </Button>
   );
 }
@@ -69,21 +63,32 @@ export function BillingSection({
   subscription: TenantSubscription | null;
   stripeEnabled: boolean;
 }) {
+  const t = useTranslations("settings");
+  const locale = useLocale();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [cancelState, cancelAction] = useActionState<CancelState, FormData>(
     cancelSubscriptionAction,
     undefined,
   );
 
+  const STATUS_LABEL: Record<string, string> = {
+    active: t("billing_status_active"),
+    trialing: t("billing_status_trialing"),
+    past_due: t("billing_status_past_due"),
+    canceled: t("billing_status_canceled"),
+    incomplete: t("billing_status_incomplete"),
+    unpaid: t("billing_status_unpaid"),
+  };
+
   // Toast on transitions, but the close-on-success setState is deferred via
   // queueMicrotask to avoid the React 19 set-state-in-effect lint.
   useEffect(() => {
     if (cancelState?.ok) {
-      toast.success("Assinatura cancelada. Vale até o fim do período.");
+      toast.success(t("billing_cancelled_toast"));
       queueMicrotask(() => setConfirmOpen(false));
     }
     if (cancelState?.error) toast.error(cancelState.error);
-  }, [cancelState]);
+  }, [cancelState, t]);
 
   const portalAction = async () => {
     const res = await openBillingPortalAction();
@@ -97,32 +102,35 @@ export function BillingSection({
   if (!stripeEnabled) {
     return (
       <section className="flex flex-col gap-4 rounded-xl border border-border bg-card/40 p-4 md:p-6">
-        <h2 className="font-display text-2xl">Assinatura do app</h2>
-        <p className="text-sm text-muted-foreground">
-          Cobrança SaaS não está ativada nesta instalação. Quando ligarmos, vais
-          gerenciar plano e pagamento por aqui.
-        </p>
+        <h2 className="font-display text-2xl">{t("billing_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("billing_disabled")}</p>
       </section>
     );
   }
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-border bg-card/40 p-4 md:p-6">
-      <h2 className="font-display text-2xl">Assinatura do app</h2>
+      <h2 className="font-display text-2xl">{t("billing_title")}</h2>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Stat label="Status" value={STATUS_LABEL[subscription?.status ?? ""] ?? "Sem assinatura"} />
-        <Stat label="Plano" value={subscription?.plan ?? "—"} />
         <Stat
-          label="Valor"
-          value={subscription ? formatPrice(subscription.value_cents) : "—"}
+          label={t("billing_status")}
+          value={STATUS_LABEL[subscription?.status ?? ""] ?? t("billing_no_sub")}
+        />
+        <Stat label={t("billing_plan")} value={subscription?.plan ?? "—"} />
+        <Stat
+          label={t("billing_value")}
+          value={subscription ? formatPrice(subscription.value_cents, locale) : "—"}
         />
         <Stat
-          label="Próximo ciclo"
-          value={formatDate(subscription?.current_period_end ?? null)}
+          label={t("billing_next")}
+          value={formatDate(subscription?.current_period_end ?? null, locale)}
         />
         {subscription?.trial_end ? (
-          <Stat label="Fim do trial" value={formatDate(subscription.trial_end)} />
+          <Stat
+            label={t("billing_trial_end")}
+            value={formatDate(subscription.trial_end, locale)}
+          />
         ) : null}
       </div>
 
@@ -137,21 +145,28 @@ export function BillingSection({
             variant="ghost"
             onClick={() => setConfirmOpen((v) => !v)}
           >
-            Cancelar assinatura
+            {t("billing_cancel")}
           </Button>
         ) : null}
       </div>
 
       {confirmOpen ? (
-        <form action={cancelAction} className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+        <form
+          action={cancelAction}
+          className="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+        >
           <p className="text-sm text-destructive">
-            Cancelamento mantém o acesso até o fim do período pago. Digita
-            <span className="font-semibold"> CANCELAR </span>
-            pra confirmar.
+            {t.rich("billing_cancel_help", {
+              strong: (chunks) => <span className="font-semibold"> {chunks} </span>,
+            })}
           </p>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="confirm">Confirmação</Label>
-            <Input id="confirm" name="confirm" placeholder="CANCELAR" />
+            <Label htmlFor="confirm">{t("billing_cancel_label")}</Label>
+            <Input
+              id="confirm"
+              name="confirm"
+              placeholder={t("billing_cancel_placeholder")}
+            />
           </div>
           <CancelButton />
         </form>

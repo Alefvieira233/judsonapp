@@ -23,7 +23,10 @@ export default async function StudentLayout({
       className="min-h-[100dvh] bg-background"
       style={brandStyleVars(tenant)}
     >
-      <main className="flex min-h-[100dvh] flex-col pb-[calc(76px+env(safe-area-inset-bottom))]">
+      <main
+        id="main-content"
+        className="flex min-h-[100dvh] flex-col pb-[calc(76px+env(safe-area-inset-bottom))]"
+      >
         {children}
       </main>
       <PwaInstallPrompt />

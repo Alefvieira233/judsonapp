@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
 import { log } from "@/lib/logger";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const createSchema = z.object({
   content: z.string().trim().min(1, "Escreva alguma coisa.").max(2000),
@@ -112,6 +112,59 @@ export async function editPostAction(
 
   if (error) {
     log.error("community.edit", error, { scope: "community" });
+    return { ok: false, error: "Não consegui salvar." };
+  }
+
+  revalidatePath("/community");
+  revalidatePath("/feed");
+  return { ok: true };
+}
+
+const editAnyCommentSchema = z.object({
+  comment_id: z.string().uuid(),
+  content: z.string().trim().min(1, "Escreva alguma coisa.").max(500, "Comentário longo demais."),
+});
+
+/**
+ * Owner-only edit of any comment in the tenant's community.
+ *
+ * Why admin client: the `community_comments_self_update` RLS policy is
+ * author-bound (`user_id = auth.uid()`), and we don't want to widen the
+ * policy and risk a student editing the trainer's reply via direct PostgREST
+ * call. Instead we gate at the action layer: confirm role=owner, confirm the
+ * comment's post belongs to this tenant, then update via admin.
+ */
+export async function editCommentAsOwnerAction(
+  input: z.infer<typeof editAnyCommentSchema>,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getCurrentProfile();
+  if (!session || session.profile.role !== "owner") {
+    return { ok: false, error: "Sem permissão." };
+  }
+
+  const parsed = editAnyCommentSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Dados inválidos." };
+  }
+
+  const admin = createAdminClient();
+  const { data: comment } = await admin
+    .from("community_comments")
+    .select("id, post:community_posts!inner(tenant_id)")
+    .eq("id", parsed.data.comment_id)
+    .maybeSingle<{ id: string; post: { tenant_id: string } | null }>();
+
+  if (!comment || comment.post?.tenant_id !== session.tenant.id) {
+    return { ok: false, error: "Comentário não encontrado." };
+  }
+
+  const { error } = await admin
+    .from("community_comments")
+    .update({ content: parsed.data.content })
+    .eq("id", parsed.data.comment_id);
+
+  if (error) {
+    log.error("community.comment.edit_as_owner", error, { scope: "community" });
     return { ok: false, error: "Não consegui salvar." };
   }
 

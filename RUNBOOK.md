@@ -302,6 +302,32 @@ curl -H "Authorization: Bearer $CRON_SECRET" \
 
 ---
 
+## 11. Email templates (Supabase Auth)
+
+O magic link default do Supabase vem em inglês e sem branding. Templates prontos em
+[`docs/email-templates/`](docs/email-templates/README.md):
+
+- `magic-link-pt-BR.html` — login da aluna (default).
+- `magic-link-es.html` — quando suportar tenant em espanhol.
+- `recovery-pt-BR.html` — reset de senha (futuro).
+
+### Passos
+
+1. Abre cada arquivo e copia o HTML inteiro.
+2. Supabase Dashboard → **Authentication → Email Templates** → seleciona o tipo (Magic
+   Link / Reset Password).
+3. Cola o HTML no campo de template e atualiza o **Subject** conforme o README do diretório.
+4. Salva.
+5. Smoke test: `/login` em dev → envia magic link pro email do dev → confirma layout e link.
+
+### Checklist
+
+- [ ] Magic Link pt-BR aplicado + subject `Seu link pra entrar no app`
+- [ ] Recovery pt-BR aplicado + subject `Redefine tua senha` (se reset ativo)
+- [ ] Smoke test mobile (Gmail iOS/Android) passou
+
+---
+
 ## Resumo das env vars
 
 | Variável | Required? | Onde aparece |

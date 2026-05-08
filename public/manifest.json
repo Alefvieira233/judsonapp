@@ -6,6 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "background_color": "#0A0A0A",
   "theme_color": "#0A0A0A",
@@ -30,6 +31,40 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/screenshot-narrow.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Home da aluna"
+    },
+    {
+      "src": "/icons/screenshot-wide.png",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Painel do personal"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Iniciar treino de hoje",
+      "short_name": "Treino",
+      "url": "/home",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Comunidade",
+      "short_name": "Feed",
+      "url": "/feed"
+    },
+    {
+      "name": "Anamnese",
+      "short_name": "Anamnese",
+      "url": "/perfil/anamnese"
     }
   ]
 }

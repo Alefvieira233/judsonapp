@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { PlayIcon, PlusIcon, SearchIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -22,6 +23,7 @@ export function ExercisesView({
   tenantId: string;
   initialExercises: ExerciseRow[];
 }) {
+  const t = useTranslations("exercises");
   const [search, setSearch] = useState("");
   const [muscle, setMuscle] = useState<string>(ALL);
   const [editing, setEditing] = useState<ExerciseRow | null>(null);
@@ -51,16 +53,19 @@ export function ExercisesView({
   return (
     <>
       <PageHeader
-        eyebrow="Painel"
-        title="Exercícios"
-        description={`${initialExercises.length} no total — ${muscleGroups.length} grupos musculares.`}
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("subtitle", {
+          count: initialExercises.length,
+          groups: muscleGroups.length,
+        })}
         trailing={
           <button
             type="button"
             onClick={() => setCreating(true)}
             className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
           >
-            <PlusIcon className="size-4" aria-hidden /> Novo exercício
+            <PlusIcon className="size-4" aria-hidden /> {t("new_exercise")}
           </button>
         }
       />
@@ -74,7 +79,7 @@ export function ExercisesView({
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, músculo ou equipamento"
+            placeholder={t("search_placeholder")}
             className="h-11 pl-9 text-base"
           />
         </div>
@@ -82,7 +87,7 @@ export function ExercisesView({
         <div className="-mx-4 overflow-x-auto px-4 md:mx-0 md:px-0">
           <div className="flex gap-2">
             <Chip
-              label={`Todos (${initialExercises.length})`}
+              label={t("filter_all", { count: initialExercises.length })}
               active={muscle === ALL}
               onClick={() => setMuscle(ALL)}
             />
@@ -99,10 +104,7 @@ export function ExercisesView({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState
-          title="Nenhum exercício encontrado"
-          description="Tente ajustar os filtros ou cadastrar um novo exercício."
-        />
+        <EmptyState title={t("empty_title")} description={t("empty_body")} />
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((ex) => (
@@ -165,6 +167,7 @@ function ExerciseCard({
   isCustom: boolean;
   onEdit: () => void;
 }) {
+  const t = useTranslations("exercises");
   return (
     <button
       type="button"
@@ -180,9 +183,9 @@ function ExerciseCard({
           {exercise.name}
         </span>
         {isCustom ? (
-          <Badge variant="default">Meu</Badge>
+          <Badge variant="default">{t("badge_mine")}</Badge>
         ) : (
-          <Badge variant="outline">Biblioteca</Badge>
+          <Badge variant="outline">{t("badge_library")}</Badge>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -197,7 +200,7 @@ function ExerciseCard({
         ) : null}
         {exercise.video_url ? (
           <span className="ml-auto inline-flex items-center gap-1 text-foreground">
-            <PlayIcon className="size-3" aria-hidden /> vídeo
+            <PlayIcon className="size-3" aria-hidden /> {t("video_label")}
           </span>
         ) : null}
       </div>

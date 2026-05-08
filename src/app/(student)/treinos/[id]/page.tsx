@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
@@ -10,7 +11,10 @@ import { WorkoutRunner, type RunnerItem, type RunnerWorkout } from "./runner";
 
 const idSchema = z.string().uuid();
 
-export const metadata = { title: "Treino" };
+export async function generateMetadata() {
+  const t = await getTranslations("runner");
+  return { title: t("metadata_title") };
+}
 
 type ItemRow = {
   id: string;
@@ -49,6 +53,7 @@ export default async function StudentWorkoutPage({
   const id = idParse.data;
   const session = await getCurrentStudent();
   if (!session) return null;
+  const t = await getTranslations("runner");
 
   const supabase = await createClient();
 
@@ -111,7 +116,7 @@ export default async function StudentWorkoutPage({
     load_suggestion: it.load_suggestion,
     notes: it.notes,
     mode: it.mode === "seconds" ? "seconds" : "reps",
-    exercise_name: it.exercise?.name ?? "Exercício removido",
+    exercise_name: it.exercise?.name ?? t("exercise_removed"),
     muscle_group: it.exercise?.muscle_group ?? null,
     last_load: lastLoadByItem.get(it.id)?.load ?? null,
     last_reps: lastLoadByItem.get(it.id)?.reps ?? null,
@@ -131,7 +136,7 @@ export default async function StudentWorkoutPage({
         href="/treinos"
         className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeftIcon className="size-3.5" /> Treinos
+        <ArrowLeftIcon className="size-3.5" /> {t("back")}
       </Link>
 
       <WorkoutRunner workout={runnerWorkout} items={runnerItems} />

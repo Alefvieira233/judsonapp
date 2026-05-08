@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ function slugify(input: string): string {
 
 function SubmitButton({ disabled }: { disabled: boolean }) {
   const { pending } = useFormStatus();
+  const t = useTranslations("signup");
   return (
     <Button
       type="submit"
@@ -33,7 +35,7 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
       className="w-full"
       disabled={pending || disabled}
     >
-      {pending ? "Criando…" : "Criar minha conta"}
+      {pending ? t("submitting") : t("submit")}
     </Button>
   );
 }
@@ -41,6 +43,7 @@ function SubmitButton({ disabled }: { disabled: boolean }) {
 type SlugCheckResult = { slug: string; ok: boolean; reason?: string };
 
 export function CreateTenantForm() {
+  const t = useTranslations("signup");
   const [name, setName] = useState("");
   const [slugManual, setSlugManual] = useState<string | null>(null);
   const [color, setColor] = useState("#DC2626");
@@ -79,7 +82,7 @@ export function CreateTenantForm() {
     : check && check.slug === slug
       ? check.ok
         ? { state: "ok" }
-        : { state: "bad", reason: check.reason ?? "Slug inválido." }
+        : { state: "bad", reason: check.reason ?? t("slug_invalid") }
       : { state: "checking" };
 
   const previewStyle = useMemo<React.CSSProperties>(
@@ -89,23 +92,23 @@ export function CreateTenantForm() {
 
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-border bg-card/40 p-5 md:p-6">
-      <Preview name={name || "Tua marca"} color={color} style={previewStyle} />
+      <Preview name={name || t("preview_default")} color={color} style={previewStyle} />
 
       <form action={formAction} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="name">Nome do personal / marca</Label>
+          <Label htmlFor="name">{t("f_name")}</Label>
           <Input
             id="name"
             name="name"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex.: Treina com Lara"
+            placeholder={t("f_name_placeholder")}
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="slug">URL única</Label>
+          <Label htmlFor="slug">{t("f_slug")}</Label>
           <div className="flex items-center gap-2 rounded-lg border border-input bg-input/30 px-2.5">
             <span className="text-xs text-muted-foreground">
               app.judsonapp.com.br/
@@ -117,37 +120,37 @@ export function CreateTenantForm() {
               value={slug}
               onChange={(e) => setSlugManual(slugify(e.target.value))}
               className="border-0 bg-transparent px-0"
-              placeholder="lara"
+              placeholder={t("f_slug_placeholder")}
             />
           </div>
           <SlugHint status={status} />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="email">Teu email</Label>
+          <Label htmlFor="email">{t("f_email")}</Label>
           <Input
             id="email"
             name="email"
             type="email"
             required
-            placeholder="voce@email.com"
+            placeholder={t("f_email_placeholder")}
             autoComplete="email"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="phone">WhatsApp (com DDI)</Label>
+          <Label htmlFor="phone">{t("f_phone")}</Label>
           <Input
             id="phone"
             name="phone"
             required
-            placeholder="+5596999999999"
+            placeholder={t("f_phone_placeholder")}
             inputMode="tel"
           />
         </div>
 
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="brand_color">Cor primária</Label>
+          <Label htmlFor="brand_color">{t("f_color")}</Label>
           <div className="flex items-center gap-3">
             <input
               type="color"
@@ -156,7 +159,7 @@ export function CreateTenantForm() {
               value={color}
               onChange={(e) => setColor(e.target.value)}
               className="h-11 w-14 cursor-pointer rounded-lg border border-input bg-transparent"
-              aria-label="Selecionar cor primária"
+              aria-label={t("f_color_aria")}
             />
             <Input
               value={color}
@@ -178,10 +181,7 @@ export function CreateTenantForm() {
 
         <SubmitButton disabled={status.state === "bad"} />
 
-        <p className="text-xs text-muted-foreground">
-          Ao continuar, aceitas os Termos e a Política de Privacidade. Sem
-          fidelidade — cancela quando quiser.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("terms")}</p>
       </form>
     </div>
   );
@@ -194,11 +194,12 @@ type SlugStatus =
   | { state: "bad"; reason: string };
 
 function SlugHint({ status }: { status: SlugStatus }) {
+  const t = useTranslations("signup");
   if (status.state === "idle") return null;
   if (status.state === "checking")
-    return <p className="text-xs text-muted-foreground">Verificando…</p>;
+    return <p className="text-xs text-muted-foreground">{t("slug_checking")}</p>;
   if (status.state === "ok")
-    return <p className="text-xs text-emerald-500">Disponível.</p>;
+    return <p className="text-xs text-emerald-500">{t("slug_available")}</p>;
   return <p className="text-xs text-destructive">{status.reason}</p>;
 }
 
@@ -211,6 +212,7 @@ function Preview({
   color: string;
   style: React.CSSProperties;
 }) {
+  const t = useTranslations("signup");
   return (
     <div
       className="overflow-hidden rounded-xl border border-border bg-background"
@@ -221,7 +223,7 @@ function Preview({
         style={{ background: color }}
       >
         <span className="block text-[10px] uppercase tracking-[0.4em] opacity-80">
-          Preview
+          {t("preview_label")}
         </span>
         <span className="mt-1 block font-display text-3xl leading-none">
           {name}
@@ -233,7 +235,7 @@ function Preview({
           className="rounded-md px-3 py-1 text-xs font-medium text-background"
           style={{ background: color }}
         >
-          Entrar
+          {t("preview_enter")}
         </span>
       </div>
     </div>

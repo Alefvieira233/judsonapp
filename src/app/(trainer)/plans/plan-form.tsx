@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,9 +30,10 @@ type PlanInput = {
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
+  const tc = useTranslations("common");
   return (
     <Button type="submit" size="lg" disabled={pending}>
-      {pending ? "Salvando…" : label}
+      {pending ? tc("saving") : label}
     </Button>
   );
 }
@@ -43,6 +45,7 @@ export function PlanForm({
   initial?: Partial<PlanInput>;
   planId?: string;
 }) {
+  const t = useTranslations("trainerPlans");
   const action = planId
     ? updatePlanAction.bind(null, planId)
     : createPlanAction;
@@ -52,64 +55,62 @@ export function PlanForm({
   );
 
   useEffect(() => {
-    if (state?.ok) toast.success("Plano salvo");
+    if (state?.ok) toast.success(t("form_saved"));
     if (state?.error) toast.error(state.error);
-  }, [state]);
+  }, [state, t]);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field id="name" label="Nome" required defaultValue={initial?.name ?? ""} />
+        <Field id="name" label={t("form_name")} required defaultValue={initial?.name ?? ""} />
         <Field
           id="price_label"
-          label="Preço (texto livre)"
+          label={t("form_price")}
           defaultValue={initial?.price_label ?? ""}
-          placeholder="R$ 299/mês"
+          placeholder={t("form_price_placeholder")}
         />
       </div>
 
       <Field
         id="tagline"
-        label="Tagline (subtítulo)"
+        label={t("form_tagline")}
         defaultValue={initial?.tagline ?? ""}
-        placeholder="Acompanhamento próximo, resultados consistentes"
+        placeholder={t("form_tagline_placeholder")}
       />
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="description">Descrição</Label>
+        <Label htmlFor="description">{t("form_description")}</Label>
         <Textarea
           id="description"
           name="description"
           rows={3}
           defaultValue={initial?.description ?? ""}
-          placeholder="Curto pitch do que esse plano entrega."
+          placeholder={t("form_description_placeholder")}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="features">Features (uma por linha)</Label>
+        <Label htmlFor="features">{t("form_features")}</Label>
         <Textarea
           id="features"
           name="features"
           rows={6}
           defaultValue={initial?.features?.join("\n") ?? ""}
-          placeholder={"Treino mensal personalizado\nWhatsApp ilimitado\nFoto de progresso"}
+          placeholder={t("form_features_placeholder")}
         />
-        <p className="text-xs text-muted-foreground">
-          Cada linha vira um bullet na vitrine pra aluna.
-        </p>
+        <p className="text-xs text-muted-foreground">{t("form_features_help")}</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           id="cta_label"
-          label="Texto do botão"
+          label={t("form_cta_label")}
           defaultValue={initial?.cta_label ?? ""}
-          placeholder="Quero esse plano"
+          placeholder={t("form_cta_placeholder")}
         />
         <Field
           id="display_order"
-          label="Ordem de exibição"
+          label={t("form_order")}
           type="number"
           defaultValue={initial?.display_order?.toString() ?? "0"}
         />
@@ -123,7 +124,7 @@ export function PlanForm({
             defaultChecked={initial?.active ?? true}
             className="size-4 accent-[var(--brand-primary)]"
           />
-          Plano ativo (aluna vê em /planos)
+          {t("form_active")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -132,7 +133,7 @@ export function PlanForm({
             defaultChecked={initial?.highlight ?? false}
             className="size-4 accent-[var(--brand-primary)]"
           />
-          Destacar como &quot;mais popular&quot;
+          {t("form_highlight")}
         </label>
       </div>
 
@@ -146,7 +147,7 @@ export function PlanForm({
       ) : null}
 
       <div className="flex justify-end pt-2">
-        <SubmitButton label={planId ? "Salvar mudanças" : "Criar plano"} />
+        <SubmitButton label={planId ? t("form_save") : t("form_create")} />
       </div>
     </form>
   );

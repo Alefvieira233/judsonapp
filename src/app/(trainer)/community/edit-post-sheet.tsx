@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,8 @@ type Props = {
 };
 
 export function EditPostSheet({ open, onOpenChange, post }: Props) {
+  const t = useTranslations("community");
+  const tc = useTranslations("common");
   const [content, setContent] = useState(post.content);
   const [mediaUrl, setMediaUrl] = useState(post.media_url ?? "");
   const [pending, startTransition] = useTransition();
@@ -46,10 +49,10 @@ export function EditPostSheet({ open, onOpenChange, post }: Props) {
           : null,
       });
       if (!res.ok) {
-        toast.error(res.error ?? "Não consegui salvar.");
+        toast.error(res.error ?? t("post_save_error"));
         return;
       }
-      toast.success("Post atualizado");
+      toast.success(t("post_updated"));
       onOpenChange(false);
     });
   };
@@ -61,15 +64,13 @@ export function EditPostSheet({ open, onOpenChange, post }: Props) {
         className="max-h-[92dvh] overflow-y-auto rounded-t-2xl border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1.5rem)] sm:max-w-lg sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:rounded-2xl"
       >
         <SheetHeader>
-          <SheetTitle className="font-display text-2xl">Editar post</SheetTitle>
-          <SheetDescription>
-            As alterações aparecem imediatamente no feed das alunas.
-          </SheetDescription>
+          <SheetTitle className="font-display text-2xl">{t("edit_post")}</SheetTitle>
+          <SheetDescription>{t("edit_post_subtitle")}</SheetDescription>
         </SheetHeader>
 
         <form onSubmit={onSubmit} className="flex flex-col gap-4 px-4 pb-4">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-content">Mensagem</Label>
+            <Label htmlFor="edit-content">{t("f_message")}</Label>
             <Textarea
               id="edit-content"
               value={content}
@@ -81,7 +82,7 @@ export function EditPostSheet({ open, onOpenChange, post }: Props) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="edit-media">Link de mídia (opcional)</Label>
+            <Label htmlFor="edit-media">{t("f_media")}</Label>
             <Input
               id="edit-media"
               type="url"
@@ -97,7 +98,7 @@ export function EditPostSheet({ open, onOpenChange, post }: Props) {
             className="w-full"
             disabled={pending || content.trim().length === 0}
           >
-            {pending ? "Salvando…" : "Salvar"}
+            {pending ? tc("saving") : tc("save")}
           </Button>
         </form>
       </SheetContent>

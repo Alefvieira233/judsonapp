@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentStudent } from "@/lib/auth";
@@ -6,7 +8,10 @@ import { createClient } from "@/lib/supabase/server";
 import { REACTION_KINDS, type ReactionKind } from "./actions";
 import { FeedPostCard, type FeedComment, type FeedPost } from "./post-card";
 
-export const metadata = { title: "Comunidade" };
+export async function generateMetadata() {
+  const t = await getTranslations("feed");
+  return { title: t("metadata_title") };
+}
 
 type PostRow = {
   id: string;
@@ -47,6 +52,8 @@ export default async function StudentFeedPage() {
   const session = await getCurrentStudent();
   if (!session) return null;
   const { profile, tenant } = session;
+  const t = await getTranslations("feed");
+  const trainerFirst = tenant.name.split(" ")[0] ?? tenant.name;
 
   const supabase = await createClient();
 
@@ -134,16 +141,13 @@ export default async function StudentFeedPage() {
   return (
     <section className="flex flex-1 flex-col gap-6 px-6 pb-8 pt-10">
       <PageHeader
-        eyebrow="Comunidade"
-        title={`${tenant.name.split(" ")[0]} & equipe`}
+        eyebrow={t("eyebrow")}
+        title={t("title", { trainer: trainerFirst })}
         description={tenant.tagline ?? undefined}
       />
 
       {cards.length === 0 ? (
-        <EmptyState
-          title="Nada por aqui ainda"
-          description="O personal vai postar recados, motivação e bastidores quando começar a trabalhar com a equipe."
-        />
+        <EmptyState title={t("empty_title")} description={t("empty_body")} />
       ) : (
         <ul className="flex flex-col gap-3">
           {cards.map((p) => (

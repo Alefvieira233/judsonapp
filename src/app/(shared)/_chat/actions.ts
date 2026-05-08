@@ -5,7 +5,8 @@ import { z } from "zod";
 
 import { getCurrentProfile } from "@/lib/auth";
 import { log } from "@/lib/logger";
-import { createClient } from "@/lib/supabase/server";
+import { sendPushToUser } from "@/lib/push";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const uuid = z.string().uuid();
 
@@ -116,16 +117,94 @@ export async function sendMessageAction(
   revalidatePath("/perfil/chat");
   revalidatePath("/students");
   revalidatePath("/perfil");
+  let recipientStudentId: string | null = null;
   if (profile.role === "owner") {
     const { data: t } = await supabase
       .from("chat_threads")
       .select("student_id")
       .eq("id", threadId)
       .maybeSingle();
-    if (t?.student_id) revalidatePath(`/students/${t.student_id}/chat`);
+    if (t?.student_id) {
+      recipientStudentId = t.student_id;
+      revalidatePath(`/students/${t.student_id}/chat`);
+    }
   }
 
+  // Fire-and-forget push to the peer. Failures here must NOT block the send,
+  // so we don't await — and any errors get logged inside sendPushToUser.
+  void deliverChatPush({
+    threadId,
+    senderId: profile.id,
+    senderName: profile.full_name,
+    senderRole: profile.role,
+    tenantId: tenant.id,
+    content: parsed.data.content,
+    recipientStudentId,
+  }).catch((err) => {
+    log.warn("chat.push.dispatch", {
+      scope: "chat",
+      message: err instanceof Error ? err.message : "unknown",
+    });
+  });
+
   return { ok: true, thread_id: threadId };
+}
+
+/**
+ * Resolves the chat recipient and sends a push. Recipient resolution uses the
+ * admin client (bypassing RLS) so the lookup never silently 404s if a tenant
+ * row tightens its policies — the message itself was already authorized.
+ *
+ * The `tag` collapses repeated notifications from the same thread into one
+ * (per the Web Push spec), so a flurry of messages doesn't bury the user.
+ */
+async function deliverChatPush(params: {
+  threadId: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  tenantId: string;
+  content: string;
+  recipientStudentId: string | null;
+}): Promise<void> {
+  const admin = createAdminClient();
+
+  let recipientUserId: string | null = null;
+  let url: string;
+
+  if (params.senderRole === "student") {
+    const { data: t } = await admin
+      .from("tenants")
+      .select("owner_user_id")
+      .eq("id", params.tenantId)
+      .maybeSingle();
+    recipientUserId = t?.owner_user_id ?? null;
+    url = `/students/${params.senderId}/chat`;
+  } else {
+    let studentId = params.recipientStudentId;
+    if (!studentId) {
+      const { data: t } = await admin
+        .from("chat_threads")
+        .select("student_id")
+        .eq("id", params.threadId)
+        .maybeSingle();
+      studentId = t?.student_id ?? null;
+    }
+    recipientUserId = studentId;
+    url = "/perfil/chat";
+  }
+
+  if (!recipientUserId || recipientUserId === params.senderId) return;
+
+  await sendPushToUser({
+    userId: recipientUserId,
+    payload: {
+      title: params.senderName,
+      body: params.content.slice(0, 100),
+      url,
+      tag: `chat-${params.threadId}`,
+    },
+  });
 }
 
 export async function markThreadReadAction(

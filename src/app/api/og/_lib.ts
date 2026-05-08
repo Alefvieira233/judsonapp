@@ -36,6 +36,9 @@ export function loadStoryFonts(): Promise<LoadedFont[]> {
       if (inter) fonts.push({ name: "Inter", data: inter, weight: 700, style: "normal" });
       return fonts;
     } catch (err) {
+      // OG image route runs on the Edge runtime where `@/lib/logger` (which
+      // depends on `server-only`) cannot import. Console.error is the only
+      // option that still flows to Vercel Edge logs.
       console.error("[og.fonts] fallback to system-ui:", err);
       return [];
     }

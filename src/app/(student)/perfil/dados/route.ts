@@ -94,7 +94,10 @@ export async function GET() {
     context: "self_service",
   });
 
-  const filename = `judsonapp-meus-dados-${profile.id}-${new Date().toISOString().slice(0, 10)}.json`;
+  // Filename intentionally uses the project slug ("judsonapp") + a neutral
+  // suffix, not a localized phrase — keeps it stable across email clients
+  // and download history regardless of UI locale.
+  const filename = `judsonapp-data-${profile.id}-${new Date().toISOString().slice(0, 10)}.json`;
   return new NextResponse(JSON.stringify(payload, null, 2), {
     status: 200,
     headers: {

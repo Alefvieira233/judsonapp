@@ -1,13 +1,17 @@
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { z } from "zod";
 
 import { ChatClient, type ChatMessageView } from "@/app/(shared)/_chat/chat-client";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Chat com aluna" };
-
 const idSchema = z.string().uuid();
+
+export async function generateMetadata() {
+  const t = await getTranslations("students");
+  return { title: t("chat_metadata_title") };
+}
 
 export default async function TrainerStudentChatPage({
   params,
@@ -22,6 +26,7 @@ export default async function TrainerStudentChatPage({
   const session = await getCurrentProfile();
   if (!session) redirect("/login");
   if (session.profile.role !== "owner") redirect("/welcome");
+  const t = await getTranslations("students");
 
   const supabase = await createClient();
   const { data: student } = await supabase
@@ -62,6 +67,7 @@ export default async function TrainerStudentChatPage({
   }
 
   const peerInitial = (Array.from(student.full_name)[0] ?? "?").toUpperCase();
+  const firstName = student.full_name.split(" ")[0] ?? student.full_name;
 
   return (
     <ChatClient
@@ -74,7 +80,7 @@ export default async function TrainerStudentChatPage({
         initial: peerInitial,
       }}
       backHref={`/students/${student.id}`}
-      emptyHint={`Diz oi pra ${student.full_name.split(" ")[0]}.`}
+      emptyHint={t("chat_empty_hint", { name: firstName })}
     />
   );
 }

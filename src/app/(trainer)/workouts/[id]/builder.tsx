@@ -20,6 +20,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CopyIcon, GripVerticalIcon, PencilIcon, PlusIcon, TrashIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,8 @@ export function WorkoutBuilder({
   students: { id: string; full_name: string }[];
   exercises: Exercise[];
 }) {
+  const t = useTranslations("workouts");
+  const tc = useTranslations("common");
   const [title, setTitle] = useState(workout.title);
   const [studentId, setStudentId] = useState<string | "">(workout.student_id ?? "");
   const [days, setDays] = useState<Set<number>>(
@@ -183,7 +186,7 @@ export function WorkoutBuilder({
         toast.error(itemsRes.error);
         return;
       }
-      toast.success("Treino salvo");
+      toast.success(t("builder_saved"));
     });
   };
 
@@ -191,17 +194,20 @@ export function WorkoutBuilder({
     <>
       <header className="flex flex-col gap-4 rounded-xl border border-border bg-card/40 p-4 md:p-6">
         <input
-          aria-label="Título do treino"
+          aria-label={t("builder_title_label")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="bg-transparent font-display text-3xl leading-tight text-foreground outline-none placeholder:text-muted-foreground md:text-4xl"
-          placeholder="Título do treino"
+          placeholder={t("builder_title_placeholder")}
         />
 
         <div className="flex flex-col gap-3 sm:flex-row">
           <div className="flex flex-1 flex-col gap-1">
-            <Label htmlFor="student_id" className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Aluna
+            <Label
+              htmlFor="student_id"
+              className="text-xs uppercase tracking-[0.2em] text-muted-foreground"
+            >
+              {t("builder_student_label")}
             </Label>
             <select
               id="student_id"
@@ -209,7 +215,7 @@ export function WorkoutBuilder({
               onChange={(e) => setStudentId(e.target.value)}
               className="h-10 rounded-lg border border-input bg-background px-3 text-base"
             >
-              <option value="">— Modelo —</option>
+              <option value="">{t("builder_template_option")}</option>
               {students.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.full_name}
@@ -220,7 +226,7 @@ export function WorkoutBuilder({
 
           <div className="flex flex-col gap-1">
             <Label className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
-              Dias da semana
+              {t("builder_days_label")}
             </Label>
             <div className="flex gap-1">
               {DAY_LABELS.map((label, idx) => {
@@ -246,11 +252,11 @@ export function WorkoutBuilder({
         </div>
 
         <Textarea
-          aria-label="Descrição"
+          aria-label={t("builder_description_label")}
           rows={2}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Notas pra aluna (aquecimento, foco, descanso médio…)"
+          placeholder={t("builder_description_placeholder")}
         />
 
         <label className="flex items-center gap-2 text-sm">
@@ -260,7 +266,7 @@ export function WorkoutBuilder({
             onChange={(e) => setActive(e.target.checked)}
             className="size-4 accent-[var(--brand-primary)]"
           />
-          Treino ativo (aluna vê no app)
+          {t("builder_active_label")}
         </label>
       </header>
 
@@ -273,6 +279,9 @@ export function WorkoutBuilder({
                 item={it}
                 onEdit={() => setEditingItem(it)}
                 onDelete={() => removeItem(it.id)}
+                dragLabel={t("builder_drag_label")}
+                editLabel={t("builder_edit_item")}
+                removeLabel={t("builder_remove_item")}
               />
             ))}
           </ul>
@@ -284,24 +293,24 @@ export function WorkoutBuilder({
         onClick={() => setPicking(true)}
         className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/30 px-4 py-4 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
       >
-        <PlusIcon className="size-4" /> Adicionar exercício
+        <PlusIcon className="size-4" /> {t("builder_add_exercise")}
       </button>
 
       <div className="sticky bottom-[calc(72px+env(safe-area-inset-bottom))] z-20 flex flex-wrap justify-end gap-2 rounded-xl border border-border bg-background/90 p-3 backdrop-blur md:bottom-4">
         <form action={deleteWorkoutAction}>
           <input type="hidden" name="id" value={workout.id} />
           <Button type="submit" variant="ghost" size="sm">
-            <TrashIcon className="size-4" /> Apagar
+            <TrashIcon className="size-4" /> {t("builder_delete")}
           </Button>
         </form>
         <form action={duplicateWorkoutAction}>
           <input type="hidden" name="id" value={workout.id} />
           <Button type="submit" variant="outline" size="sm">
-            <CopyIcon className="size-4" /> Duplicar
+            <CopyIcon className="size-4" /> {t("builder_duplicate")}
           </Button>
         </form>
         <Button onClick={onSave} disabled={pending} size="lg">
-          {pending ? "Salvando…" : "Salvar treino"}
+          {pending ? tc("saving") : t("builder_save")}
         </Button>
       </div>
 
@@ -327,10 +336,16 @@ function SortableItem({
   item,
   onEdit,
   onDelete,
+  dragLabel,
+  editLabel,
+  removeLabel,
 }: {
   item: BuilderItem;
   onEdit: () => void;
   onDelete: () => void;
+  dragLabel: string;
+  editLabel: string;
+  removeLabel: string;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: item.id });
@@ -349,7 +364,7 @@ function SortableItem({
     >
       <button
         type="button"
-        aria-label="Arrastar pra reordenar"
+        aria-label={dragLabel}
         className="flex shrink-0 cursor-grab touch-none items-center justify-center px-2 text-muted-foreground active:cursor-grabbing"
         {...attributes}
         {...listeners}
@@ -376,7 +391,7 @@ function SortableItem({
         <button
           type="button"
           onClick={onEdit}
-          aria-label="Editar item"
+          aria-label={editLabel}
           className="grid w-10 place-items-center text-muted-foreground hover:text-foreground"
         >
           <PencilIcon className="size-4" />
@@ -384,7 +399,7 @@ function SortableItem({
         <button
           type="button"
           onClick={onDelete}
-          aria-label="Remover item"
+          aria-label={removeLabel}
           className="grid w-10 place-items-center text-muted-foreground hover:text-destructive"
         >
           <TrashIcon className="size-4" />
@@ -440,6 +455,7 @@ function ItemForm({
   onSave: (it: BuilderItem) => void;
   onDelete: () => void;
 }) {
+  const t = useTranslations("workouts");
   const [draft, setDraft] = useState<BuilderItem>(item);
 
   const set = <K extends keyof BuilderItem>(k: K, v: BuilderItem[K]) =>
@@ -460,14 +476,14 @@ function ItemForm({
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            {m === "reps" ? "Repetições" : "Tempo"}
+            {m === "reps" ? t("builder_mode_reps") : t("builder_mode_time")}
           </button>
         ))}
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sets">Séries</Label>
+          <Label htmlFor="sets">{t("builder_sets")}</Label>
           <Input
             id="sets"
             type="number"
@@ -479,7 +495,9 @@ function ItemForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reps">{draft.mode === "seconds" ? "Tempo" : "Reps"}</Label>
+          <Label htmlFor="reps">
+            {draft.mode === "seconds" ? t("builder_time") : t("builder_reps")}
+          </Label>
           <Input
             id="reps"
             value={draft.reps}
@@ -488,7 +506,7 @@ function ItemForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="rest">Descanso (s)</Label>
+          <Label htmlFor="rest">{t("builder_rest")}</Label>
           <Input
             id="rest"
             type="number"
@@ -508,32 +526,32 @@ function ItemForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="load">Sugestão de carga</Label>
+        <Label htmlFor="load">{t("builder_load")}</Label>
         <Input
           id="load"
           value={draft.load_suggestion ?? ""}
           onChange={(e) => set("load_suggestion", e.target.value || null)}
-          placeholder="20kg, RPE 8, até a falha…"
+          placeholder={t("builder_load_placeholder")}
         />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="notes">Observações</Label>
+        <Label htmlFor="notes">{t("builder_notes")}</Label>
         <Textarea
           id="notes"
           rows={3}
           value={draft.notes ?? ""}
           onChange={(e) => set("notes", e.target.value || null)}
-          placeholder="Ritmo, foco, dica de execução…"
+          placeholder={t("builder_notes_placeholder")}
         />
       </div>
 
       <div className="flex justify-between pt-2">
         <Button type="button" variant="ghost" onClick={onDelete}>
-          Remover
+          {t("builder_remove")}
         </Button>
         <Button onClick={() => onSave(draft)} size="lg">
-          Salvar item
+          {t("builder_save_item")}
         </Button>
       </div>
     </div>

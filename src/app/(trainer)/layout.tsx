@@ -36,7 +36,10 @@ export default async function TrainerLayout({
           userInitial={userInitial}
           className="md:hidden"
         />
-        <main className="flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0">
+        <main
+          id="main-content"
+          className="flex-1 pb-[calc(72px+env(safe-area-inset-bottom))] md:pb-0"
+        >
           {children}
         </main>
       </div>

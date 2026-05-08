@@ -15,7 +15,7 @@ import { getTranslations } from "next-intl/server";
 import { Sparkline } from "@/components/charts";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentStudent } from "@/lib/auth";
-import { computeStreak, startOfDay } from "@/lib/dates";
+import { computeStreak, greetingKey, startOfDay } from "@/lib/dates";
 import { evaluateMilestones } from "@/lib/milestones";
 import {
   type MuscleGroup,
@@ -55,13 +55,6 @@ type PlanRow = {
 
 function firstName(full: string): string {
   return full.split(" ")[0] ?? full;
-}
-
-function greetingKey(now: Date): "greeting_morning" | "greeting_afternoon" | "greeting_evening" {
-  const hour = now.getHours();
-  if (hour < 12) return "greeting_morning";
-  if (hour < 18) return "greeting_afternoon";
-  return "greeting_evening";
 }
 
 function pickTodayWorkout(

@@ -1,14 +1,19 @@
-import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, SparklesIcon } from "lucide-react";
+import { CheckIcon, SparklesIcon } from "lucide-react";
+import { getLocale, getTranslations } from "next-intl/server";
 
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { isAsaasEnabled } from "@/lib/asaas";
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 import { SubscribeButtons } from "./subscribe-buttons";
 
-export const metadata = { title: "Planos" };
+export async function generateMetadata() {
+  const t = await getTranslations("plans");
+  return { title: t("metadata_title") };
+}
 
 type PlanRow = {
   id: string;
@@ -34,18 +39,21 @@ function whatsappLink(number: string, message: string): string {
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
 }
 
-function formatNextBilling(iso: string | null): string | null {
+function formatNextBilling(iso: string | null, locale: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+  return d.toLocaleDateString(locale, { day: "2-digit", month: "2-digit" });
 }
 
 export default async function StudentPlansPage() {
   const session = await getCurrentStudent();
   if (!session) return null;
   const { profile, tenant } = session;
+  const t = await getTranslations("plans");
+  const locale = await getLocale();
   const asaasEnabled = isAsaasEnabled();
+  const trainerFirst = tenant.name.split(" ")[0] ?? tenant.name;
 
   const supabase = await createClient();
   const [plansRes, subRes] = await Promise.all([
@@ -74,36 +82,32 @@ export default async function StudentPlansPage() {
 
   return (
     <section className="flex flex-1 flex-col gap-6 px-5 pb-8 pt-6">
-      <Link
-        href="/perfil"
-        className="inline-flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeftIcon className="size-3.5" /> Perfil
-      </Link>
-
-      <header className="flex flex-col gap-2">
-        <span className="text-[11px] uppercase tracking-[0.4em] text-muted-foreground">
-          Acompanhamento
-        </span>
-        <h1 className="font-display text-4xl leading-[0.9]">Planos</h1>
-        <p className="text-sm text-muted-foreground">
-          {asaasEnabled
-            ? `Escolhe o nível e a forma de pagamento. Pagamento via Pix recorrente, cartão ou boleto, direto pra ${tenant.name.split(" ")[0]}.`
-            : `Escolhe o nível de acompanhamento que combina com o teu momento. Tu fala com o ${tenant.name.split(" ")[0]} pelo WhatsApp pra acertar.`}
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={
+          asaasEnabled
+            ? t("subtitle_payments", { trainer: trainerFirst })
+            : t("subtitle_whatsapp", { trainer: trainerFirst })
+        }
+        back={{ href: "/perfil", label: t("back_to_profile") }}
+      />
 
       {plans.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-border bg-card/20 px-6 py-12 text-center text-sm text-muted-foreground">
-          Os planos ainda não foram cadastrados. Fala direto pelo WhatsApp.
-        </div>
+        <EmptyState title={t("title")} description={t("empty")} />
       ) : (
         <ul className="flex flex-col gap-3">
           {plans.map((plan) => {
             const isCurrent = profile.current_plan_id === plan.id;
             const planSub = sub && sub.plan_id === plan.id ? sub : null;
-            const nextBilling = formatNextBilling(planSub?.current_period_end ?? null);
-            const message = `Oi ${tenant.name.split(" ")[0]}! Quero saber mais sobre o plano "${plan.name}".`;
+            const nextBilling = formatNextBilling(
+              planSub?.current_period_end ?? null,
+              locale,
+            );
+            const message = t("wa_message", {
+              trainer: trainerFirst,
+              plan: plan.name,
+            });
             return (
               <li
                 key={plan.id}
@@ -115,7 +119,7 @@ export default async function StudentPlansPage() {
               >
                 {plan.highlight ? (
                   <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-[var(--brand-primary)] px-2.5 py-1 text-[10px] uppercase tracking-[0.2em] text-white">
-                    <SparklesIcon className="size-3" /> Mais popular
+                    <SparklesIcon className="size-3" /> {t("popular")}
                   </span>
                 ) : null}
 
@@ -155,10 +159,11 @@ export default async function StudentPlansPage() {
 
                 {isCurrent ? (
                   <div className="rounded-md border border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/10 px-3 py-2 text-xs text-foreground">
-                    Esse é o teu plano atual.
+                    {t("current_plan")}
                     {nextBilling ? (
                       <span className="ml-1 text-muted-foreground">
-                        Próxima cobrança em {nextBilling}.
+                        {" "}
+                        {t("next_billing", { date: nextBilling })}
                       </span>
                     ) : null}
                   </div>
@@ -178,7 +183,7 @@ export default async function StudentPlansPage() {
                       className: "w-full",
                     })}
                   >
-                    {plan.cta_label ?? "Quero esse plano"}
+                    {plan.cta_label ?? t("default_cta")}
                   </a>
                 )}
               </li>
@@ -189,8 +194,8 @@ export default async function StudentPlansPage() {
 
       <p className="text-center text-xs text-muted-foreground">
         {asaasEnabled
-          ? "Pagamento processado por Asaas. Cancela quando quiser."
-          : `Pagamento via PIX direto pro ${tenant.name.split(" ")[0]}. Sem burocracia.`}
+          ? t("footer_payments")
+          : t("footer_whatsapp", { trainer: trainerFirst })}
       </p>
     </section>
   );

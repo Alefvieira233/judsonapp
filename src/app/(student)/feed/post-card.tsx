@@ -2,6 +2,7 @@
 
 import { useOptimistic, useState, useTransition } from "react";
 import { CheckIcon, MessageCircleIcon, PencilIcon, PinIcon, SendIcon, TrashIcon, XIcon } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -49,12 +50,12 @@ const REACTION_EMOJI: Record<ReactionKind, string> = {
   clap: "👏",
 };
 
-const REACTION_LABEL: Record<ReactionKind, string> = {
-  like: "Curtir",
-  fire: "Fogo",
-  heart: "Amei",
-  muscle: "Força",
-  clap: "Palmas",
+const REACTION_LABEL_KEY: Record<ReactionKind, string> = {
+  like: "react_like",
+  fire: "react_fire",
+  heart: "react_heart",
+  muscle: "react_muscle",
+  clap: "react_clap",
 };
 
 function isImageUrl(url: string): boolean {
@@ -78,10 +79,10 @@ function isVideoEmbedUrl(url: string): boolean {
   }
 }
 
-function formatDate(iso: string | null): string {
+function formatDate(iso: string | null, locale: string): string {
   if (!iso) return "";
   const d = new Date(iso);
-  return d.toLocaleString("pt-BR", {
+  return d.toLocaleString(locale, {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -95,6 +96,8 @@ type ReactionState = {
 };
 
 export function FeedPostCard({ post }: { post: FeedPost }) {
+  const t = useTranslations("feed");
+  const locale = useLocale();
   const [showComments, setShowComments] = useState(post.comments.length > 0);
   const [draft, setDraft] = useState("");
   const [comments, setComments] = useState<FeedComment[]>(post.comments);
@@ -126,7 +129,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
         post_id: post.id,
         reaction: kind,
       });
-      if (!res.ok) toast.error(res.error ?? "Não consegui reagir.");
+      if (!res.ok) toast.error(res.error ?? t("react_error"));
     });
   };
 
@@ -137,7 +140,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
     startComment(async () => {
       const res = await addCommentAction({ post_id: post.id, content: text });
       if (!res.ok) {
-        toast.error(res.error ?? "Não consegui publicar.");
+        toast.error(res.error ?? t("comment_post_error"));
         return;
       }
       setComments((c) => [
@@ -147,7 +150,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
           content: text,
           created_at: new Date().toISOString(),
           user_id: null,
-          author: { full_name: "Você" },
+          author: { full_name: t("you") },
           is_mine: true,
         },
       ]);
@@ -159,7 +162,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
     startDelete(async () => {
       const res = await deleteCommentAction({ comment_id: id });
       if (!res.ok) {
-        toast.error(res.error ?? "Não consegui apagar.");
+        toast.error(res.error ?? t("comment_delete_error"));
         return;
       }
       setComments((c) => c.filter((it) => it.id !== id));
@@ -182,7 +185,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
     startEdit(async () => {
       const res = await editCommentAction({ comment_id: id, content: text });
       if (!res.ok) {
-        toast.error(res.error ?? "Não consegui editar.");
+        toast.error(res.error ?? t("comment_edit_error"));
         return;
       }
       setComments((list) =>
@@ -206,12 +209,12 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
             {post.author?.full_name ?? "—"}
           </span>
           <span className="text-[10px] text-muted-foreground">
-            {formatDate(post.published_at)}
+            {formatDate(post.published_at, locale)}
           </span>
         </div>
         {post.pinned ? (
           <Badge variant="default" className="gap-1">
-            <PinIcon className="size-3" /> Fixado
+            <PinIcon className="size-3" /> {t("pinned")}
           </Badge>
         ) : null}
       </header>
@@ -257,7 +260,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
               onClick={() => onReact(kind)}
               disabled={pendingReact}
               aria-pressed={isMine}
-              aria-label={REACTION_LABEL[kind]}
+              aria-label={t(REACTION_LABEL_KEY[kind])}
               className={cn(
                 "inline-flex h-11 min-w-[44px] items-center gap-1.5 rounded-full border px-3 text-sm transition-all active:scale-95",
                 isMine
@@ -281,8 +284,10 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
       <footer className="flex items-center justify-between gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
         <span className="tabular-nums">
           {totalReactions > 0
-            ? `${totalReactions} reaç${totalReactions === 1 ? "ão" : "ões"}`
-            : "Seja a primeira a reagir"}
+            ? totalReactions === 1
+              ? t("reactions_one", { count: totalReactions })
+              : t("reactions_other", { count: totalReactions })
+            : t("be_first")}
         </span>
         <button
           type="button"
@@ -310,7 +315,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
                       <span className="text-[11px] uppercase tracking-[0.15em] text-muted-foreground">
                         {c.author?.full_name ?? "—"}
                         <span className="ml-2 text-[10px] normal-case tracking-normal text-muted-foreground/70">
-                          {formatDate(c.created_at)}
+                          {formatDate(c.created_at, locale)}
                         </span>
                       </span>
                       {isEditing ? (
@@ -330,7 +335,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
                               onClick={() => onSaveEdit(c.id)}
                               disabled={pendingEdit || editDraft.trim().length === 0}
                             >
-                              <CheckIcon className="size-3.5" /> Salvar
+                              <CheckIcon className="size-3.5" /> {t("comment_save")}
                             </Button>
                             <Button
                               type="button"
@@ -339,7 +344,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
                               onClick={onCancelEdit}
                               disabled={pendingEdit}
                             >
-                              <XIcon className="size-3.5" /> Cancelar
+                              <XIcon className="size-3.5" /> {t("comment_cancel")}
                             </Button>
                           </div>
                         </div>
@@ -353,7 +358,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
                           type="button"
                           onClick={() => onStartEdit(c)}
                           disabled={c.id.startsWith("tmp-")}
-                          aria-label="Editar comentário"
+                          aria-label={t("edit_comment")}
                           className="grid size-11 place-items-center text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
                         >
                           <PencilIcon className="size-3.5" />
@@ -362,7 +367,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
                           type="button"
                           onClick={() => onDeleteComment(c.id)}
                           disabled={pendingDelete || c.id.startsWith("tmp-")}
-                          aria-label="Apagar comentário"
+                          aria-label={t("delete_comment")}
                           className="grid size-11 place-items-center text-muted-foreground transition-colors hover:text-destructive disabled:opacity-50"
                         >
                           <TrashIcon className="size-3.5" />
@@ -386,7 +391,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
                   e.currentTarget.form?.requestSubmit();
                 }
               }}
-              placeholder="Comentar…"
+              placeholder={t("comment_placeholder")}
               maxLength={500}
               className="min-h-[44px] resize-none text-sm"
             />
@@ -394,7 +399,7 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
               type="submit"
               size="icon"
               disabled={pendingComment || draft.trim().length === 0}
-              aria-label="Publicar comentário"
+              aria-label={t("publish_comment")}
             >
               <SendIcon className="size-4" />
             </Button>

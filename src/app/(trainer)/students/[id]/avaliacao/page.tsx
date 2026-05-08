@@ -1,10 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, RulerIcon, TrashIcon } from "lucide-react";
+import { ArrowLeftIcon, RulerIcon, TrashIcon, ZapIcon } from "lucide-react";
 import { z } from "zod";
 
+import { Sparkline } from "@/components/charts";
 import { Button } from "@/components/ui/button";
 import { getCurrentProfile } from "@/lib/auth";
+import {
+  type MuscleGroup,
+  MUSCLE_LABELS,
+  MUSCLE_ORDER,
+} from "@/lib/strength-score";
 import { createClient } from "@/lib/supabase/server";
 
 import { deleteAssessmentAction } from "./actions";
@@ -42,6 +48,71 @@ function delta(prev: number | null, curr: number | null): string | null {
   return d > 0 ? `+${d}` : `${d}`;
 }
 
+const STRENGTH_WINDOW_DAYS = 90;
+const MS_PER_DAY = 86_400_000;
+
+type StrengthSnapshotRow = {
+  snapshot_date: string;
+  score_chest: number;
+  score_back: number;
+  score_legs: number;
+  score_shoulders: number;
+  score_arms: number;
+  score_core: number;
+};
+
+const SNAPSHOT_FIELD: Record<MuscleGroup, keyof StrengthSnapshotRow> = {
+  peito: "score_chest",
+  costas: "score_back",
+  perna: "score_legs",
+  ombro: "score_shoulders",
+  braço: "score_arms",
+  core: "score_core",
+};
+
+function isoDate(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
+function buildStrengthSeries(
+  snapshots: StrengthSnapshotRow[],
+  windowDays: number,
+): Record<MuscleGroup, number[]> {
+  const byDate = new Map<string, StrengthSnapshotRow>();
+  for (const s of snapshots) byDate.set(s.snapshot_date, s);
+
+  const today = new Date();
+  const dates: string[] = [];
+  for (let i = windowDays - 1; i >= 0; i--) {
+    dates.push(isoDate(new Date(today.getTime() - i * MS_PER_DAY)));
+  }
+
+  const out: Record<MuscleGroup, number[]> = {
+    peito: [],
+    costas: [],
+    perna: [],
+    ombro: [],
+    braço: [],
+    core: [],
+  };
+  const last: Record<MuscleGroup, number> = {
+    peito: 0,
+    costas: 0,
+    perna: 0,
+    ombro: 0,
+    braço: 0,
+    core: 0,
+  };
+  for (const date of dates) {
+    const row = byDate.get(date);
+    for (const m of MUSCLE_ORDER) {
+      if (row) last[m] = row[SNAPSHOT_FIELD[m]] as number;
+      out[m].push(last[m]);
+    }
+  }
+  return out;
+}
+
 export default async function StudentAssessmentsPage({
   params,
 }: {
@@ -56,7 +127,10 @@ export default async function StudentAssessmentsPage({
   if (!session) return null;
 
   const supabase = await createClient();
-  const [studentRes, assessmentsRes] = await Promise.all([
+  const strengthSinceIso = isoDate(
+    new Date(new Date().getTime() - STRENGTH_WINDOW_DAYS * MS_PER_DAY),
+  );
+  const [studentRes, assessmentsRes, snapshotsRes] = await Promise.all([
     supabase
       .from("profiles")
       .select("id, full_name")
@@ -74,11 +148,25 @@ export default async function StudentAssessmentsPage({
       .order("measured_at", { ascending: false })
       .limit(50)
       .returns<AssessmentRow[]>(),
+    supabase
+      .from("strength_snapshots")
+      .select(
+        "snapshot_date, score_chest, score_back, score_legs, score_shoulders, score_arms, score_core",
+      )
+      .eq("user_id", id)
+      .gte("snapshot_date", strengthSinceIso)
+      .order("snapshot_date", { ascending: true })
+      .returns<StrengthSnapshotRow[]>(),
   ]);
 
   const student = studentRes.data;
   if (!student) notFound();
   const list = assessmentsRes.data ?? [];
+  const strengthSeries = buildStrengthSeries(
+    snapshotsRes.data ?? [],
+    STRENGTH_WINDOW_DAYS,
+  );
+  const hasStrengthData = (snapshotsRes.data ?? []).length > 0;
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 md:px-6 md:py-10">
@@ -103,6 +191,71 @@ export default async function StudentAssessmentsPage({
       </header>
 
       <NewAssessmentForm studentId={id} />
+
+      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card/30 p-5">
+        <header className="flex items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-display text-xl">
+            <ZapIcon className="size-5 text-[var(--brand-primary)]" /> Evolução de força
+          </h2>
+          <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            últimos {STRENGTH_WINDOW_DAYS} dias
+          </span>
+        </header>
+        {hasStrengthData ? (
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {MUSCLE_ORDER.map((m) => {
+              const values = strengthSeries[m];
+              const current = values[values.length - 1] ?? 0;
+              const start = values[0] ?? 0;
+              const trend = current - start;
+              const trendLabel =
+                trend === 0
+                  ? "estável"
+                  : trend > 0
+                    ? `+${trend} pts`
+                    : `${trend} pts`;
+              const points = values.map((value) => ({ value }));
+              return (
+                <li
+                  key={m}
+                  className="flex flex-col gap-2 rounded-xl border border-border/60 bg-background/40 p-3"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-medium text-foreground">
+                      {MUSCLE_LABELS[m]}
+                    </span>
+                    <span className="font-display text-2xl tabular-nums text-foreground">
+                      {current}
+                    </span>
+                  </div>
+                  <Sparkline
+                    points={points}
+                    width={200}
+                    height={60}
+                    strokeWidth={2}
+                    className="w-full text-[var(--brand-primary)]"
+                    ariaLabel={`Evolução ${MUSCLE_LABELS[m]} últimos ${STRENGTH_WINDOW_DAYS} dias`}
+                  />
+                  <span
+                    className={`text-[11px] tabular-nums ${
+                      trend > 0
+                        ? "text-[var(--brand-primary)]"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {trendLabel} no período
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="rounded-xl border border-dashed border-border bg-card/20 px-4 py-6 text-center text-sm text-muted-foreground">
+            Ainda sem snapshots. O cron diário começa a registrar a partir de
+            hoje — a evolução aparece aqui em alguns dias.
+          </p>
+        )}
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="flex items-center gap-2 font-display text-xl">

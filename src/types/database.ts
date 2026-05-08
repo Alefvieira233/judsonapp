@@ -714,6 +714,64 @@ export type Database = {
           },
         ]
       }
+      personal_records: {
+        Row: {
+          id: string
+          tenant_id: string
+          user_id: string
+          workout_item_id: string | null
+          exercise_name: string
+          prev_max: number
+          new_max: number
+          achieved_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          user_id: string
+          workout_item_id?: string | null
+          exercise_name: string
+          prev_max?: number
+          new_max: number
+          achieved_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          user_id?: string
+          workout_item_id?: string | null
+          exercise_name?: string
+          prev_max?: number
+          new_max?: number
+          achieved_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "personal_records_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "personal_records_workout_item_id_fkey"
+            columns: ["workout_item_id"]
+            isOneToOne: false
+            referencedRelation: "workout_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active: boolean | null
@@ -787,6 +845,7 @@ export type Database = {
           phone: string | null
           referral_code: string | null
           role: string
+          share_in_leaderboard: boolean
           tenant_id: string | null
           updated_at: string | null
         }
@@ -806,6 +865,7 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           role: string
+          share_in_leaderboard?: boolean
           tenant_id?: string | null
           updated_at?: string | null
         }
@@ -825,6 +885,7 @@ export type Database = {
           phone?: string | null
           referral_code?: string | null
           role?: string
+          share_in_leaderboard?: boolean
           tenant_id?: string | null
           updated_at?: string | null
         }
@@ -1166,6 +1227,63 @@ export type Database = {
         }
         Relationships: []
       }
+      strength_snapshots: {
+        Row: {
+          id: string
+          tenant_id: string
+          user_id: string
+          snapshot_date: string
+          score_chest: number
+          score_back: number
+          score_legs: number
+          score_shoulders: number
+          score_arms: number
+          score_core: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          user_id: string
+          snapshot_date: string
+          score_chest?: number
+          score_back?: number
+          score_legs?: number
+          score_shoulders?: number
+          score_arms?: number
+          score_core?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          user_id?: string
+          snapshot_date?: string
+          score_chest?: number
+          score_back?: number
+          score_legs?: number
+          score_shoulders?: number
+          score_arms?: number
+          score_core?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "strength_snapshots_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "strength_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       testimonials: {
         Row: {
           author_avatar_url: string | null
@@ -1375,7 +1493,17 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      monthly_leaderboard: {
+        Row: {
+          tenant_id: string | null
+          student_id: string
+          full_name: string
+          avatar_url: string | null
+          workouts_this_month: number
+          position: number
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auth_role: { Args: never; Returns: string }
@@ -1549,3 +1677,6 @@ export type ChatMessage = Tables<"chat_messages">
 export type TenantSubscription = Tables<"tenant_subscriptions">
 export type AuditLog = Tables<"audit_log">
 export type StripeEvent = Tables<"stripe_events">
+export type PersonalRecord = Tables<"personal_records">
+export type StrengthSnapshot = Tables<"strength_snapshots">
+export type MonthlyLeaderboardRow = Tables<"monthly_leaderboard">

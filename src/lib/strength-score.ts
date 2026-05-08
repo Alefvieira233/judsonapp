@@ -101,6 +101,37 @@ function normalizeMuscle(raw: string | null | undefined): MuscleGroup | null {
 
 export type StrengthScores = Record<MuscleGroup, number>;
 
+/** Mapeia o objeto canônico StrengthScores → colunas da tabela strength_snapshots. */
+export function strengthScoresToColumns(s: StrengthScores) {
+  return {
+    score_chest: s.peito,
+    score_back: s.costas,
+    score_legs: s.perna,
+    score_shoulders: s.ombro,
+    score_arms: s.braço,
+    score_core: s.core,
+  };
+}
+
+/** Inverso: colunas vindas do banco → StrengthScores. */
+export function columnsToStrengthScores(row: {
+  score_chest: number;
+  score_back: number;
+  score_legs: number;
+  score_shoulders: number;
+  score_arms: number;
+  score_core: number;
+}): StrengthScores {
+  return {
+    peito: row.score_chest,
+    costas: row.score_back,
+    perna: row.score_legs,
+    ombro: row.score_shoulders,
+    braço: row.score_arms,
+    core: row.score_core,
+  };
+}
+
 export async function computeStrengthScoreByMuscle({
   userId,
   supabase,

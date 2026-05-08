@@ -14,10 +14,12 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 
+import { LineChart, type LinePoint } from "@/components/charts/line-chart";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
+import { Surface } from "@/components/ui/surface";
 import { getCurrentProfile } from "@/lib/auth";
-import { computeStreak, timeAgo } from "@/lib/dates";
+import { computeStreak, startOfDay, timeAgo } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.string().uuid();
@@ -237,6 +239,35 @@ export default async function StudentDetailPage({
   );
   const recent = completed.slice(0, 8);
 
+  // 8-week sparkline buckets — week buckets start on Monday for stable labels.
+  const todayStart = startOfDay(new Date());
+  const dowOffset = (todayStart.getDay() + 6) % 7; // Monday = 0
+  const thisWeekStart = new Date(todayStart.getTime() - dowOffset * 86_400_000);
+  const weekBuckets: { start: Date; count: number }[] = [];
+  for (let i = 7; i >= 0; i--) {
+    weekBuckets.push({
+      start: new Date(thisWeekStart.getTime() - i * 7 * 86_400_000),
+      count: 0,
+    });
+  }
+  const earliestWeekMs = weekBuckets[0]!.start.getTime();
+  for (const log of completed) {
+    if (!log.completed_at) continue;
+    const t = startOfDay(log.completed_at).getTime();
+    if (t < earliestWeekMs) continue;
+    const idx = Math.floor((t - earliestWeekMs) / (7 * 86_400_000));
+    if (idx >= 0 && idx < weekBuckets.length) {
+      weekBuckets[idx]!.count += 1;
+    }
+  }
+  const sparklinePoints: LinePoint[] = weekBuckets.map((b, i) => ({
+    label: i === weekBuckets.length - 1
+      ? "agora"
+      : `${b.start.getDate()}/${b.start.getMonth() + 1}`,
+    value: b.count,
+  }));
+  const hasSparklineData = sparklinePoints.some((p) => p.value > 0);
+
   const initial = (Array.from(student.full_name)[0] ?? "?").toUpperCase();
 
   return (
@@ -289,6 +320,26 @@ export default async function StudentDetailPage({
           />
         </li>
       </ul>
+
+      {hasSparklineData ? (
+        <Surface className="flex flex-col gap-2 p-4">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+              Últimas 8 semanas
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Treinos por semana
+            </span>
+          </div>
+          <LineChart
+            points={sparklinePoints}
+            area
+            height={72}
+            showAxis={false}
+            ariaLabel="Treinos por semana nas últimas 8 semanas"
+          />
+        </Surface>
+      ) : null}
 
       <Link
         href={`/students/${student.id}/chat`}

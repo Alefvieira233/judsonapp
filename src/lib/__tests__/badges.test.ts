@@ -15,10 +15,12 @@ function buildSupabaseMock({
   logs,
   earned,
   insertResult,
+  prCount = 0,
 }: {
   logs: LogRow[];
   earned: EarnedRow[];
   insertResult?: { data?: EarnedRow[]; error?: unknown };
+  prCount?: number;
 }) {
   // PostgREST chain — each call returns `this` so awaits resolve to the
   // payload regardless of which terminal method is hit (.returns or upsert).
@@ -38,6 +40,16 @@ function buildSupabaseMock({
     returns: vi.fn().mockResolvedValue({ data: earned, error: null }),
   };
 
+  // personal_records count query: select(..., { count: "exact", head: true })
+  // → awaiting eq(...) resolves to { data, count, error }. Chain returns `this`
+  // so any number of .eq() lands at the same thenable.
+  const prCountChain: Record<string, unknown> = {};
+  prCountChain.select = vi.fn().mockReturnValue(prCountChain);
+  prCountChain.eq = vi.fn().mockReturnValue(prCountChain);
+  prCountChain.then = (
+    resolve: (v: { data: null; count: number; error: null }) => unknown,
+  ) => resolve({ data: null, count: prCount, error: null });
+
   const insertChain = {
     upsert: vi.fn(function upsert(rows: unknown, opts: unknown) {
       upsertCalls.push({ rows, opts });
@@ -52,6 +64,7 @@ function buildSupabaseMock({
   const supabase = {
     from: vi.fn((table: string) => {
       if (table === "workout_logs") return logsChain;
+      if (table === "personal_records") return prCountChain;
       if (table === "badges_earned") {
         // Disambiguate: first call is the SELECT (earned), subsequent is UPSERT.
         // We track via call count.
@@ -216,6 +229,46 @@ describe("evaluateBadges", () => {
       supabase: supabase as any,
     });
     expect(result.map((b) => b.key)).toContain("100-workouts");
+  });
+
+  it("unlocks pr-load on the first personal record", async () => {
+    const logs = [{ completed_at: daysAgoIso(0) }];
+    const { supabase } = buildSupabaseMock({
+      logs,
+      earned: [{ badge_key: "first-workout" }],
+      prCount: 1,
+      insertResult: { data: [{ badge_key: "pr-load" }], error: null },
+    });
+    const result = await evaluateBadges({
+      ...baseArgs,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: supabase as any,
+    });
+    expect(result.map((b) => b.key)).toContain("pr-load");
+  });
+
+  it("unlocks pr-load-10 once total PRs >= 10", async () => {
+    const logs = Array.from({ length: 5 }, (_, i) => ({
+      completed_at: daysAgoIso(i),
+    }));
+    const { supabase } = buildSupabaseMock({
+      logs,
+      earned: [
+        { badge_key: "first-workout" },
+        { badge_key: "pr-load" },
+      ],
+      prCount: 10,
+      insertResult: {
+        data: [{ badge_key: "pr-load-10" }],
+        error: null,
+      },
+    });
+    const result = await evaluateBadges({
+      ...baseArgs,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase: supabase as any,
+    });
+    expect(result.map((b) => b.key)).toContain("pr-load-10");
   });
 
   it("does not re-emit already-earned badges", async () => {

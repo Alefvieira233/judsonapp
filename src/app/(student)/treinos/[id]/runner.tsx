@@ -243,6 +243,17 @@ export function WorkoutRunner({
         toast.error(res.error ?? "Não consegui salvar.");
         return;
       }
+      // PR detected server-side — celebra com toast brand. Confetti completo
+      // fica reservado pra conclusão do treino; aqui só damos o sinal claro.
+      if (res.isPR && res.exerciseName && res.newMax) {
+        toast.success(`🏆 PR! ${res.exerciseName} — ${res.newMax}kg`, {
+          description:
+            res.prevMax && res.prevMax > 0
+              ? `Recorde anterior: ${res.prevMax}kg`
+              : undefined,
+          duration: 4500,
+        });
+      }
       // Start rest timer for this exercise.
       setRest({ secs: item.rest_seconds, itemId: item.id });
       setRestPaused(false);

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
-import { type BadgeDef, evaluateBadges } from "@/lib/badges";
+import { type BadgeDef, detectAndRecordPR, evaluateBadges } from "@/lib/badges";
 import { log } from "@/lib/logger";
 import { createClient } from "@/lib/supabase/server";
 
@@ -72,9 +72,19 @@ const setSchema = z.object({
   load_kg: z.number().min(0).max(999).nullable(),
 });
 
+export type LogSetResult =
+  | {
+      ok: true;
+      isPR?: boolean;
+      newMax?: number;
+      prevMax?: number;
+      exerciseName?: string;
+    }
+  | { ok: false; error: string };
+
 export async function logSetAction(
   input: z.infer<typeof setSchema>,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<LogSetResult> {
   const session = await getCurrentStudent();
   if (!session) return { ok: false, error: "Sessão expirada." };
 
@@ -108,6 +118,8 @@ export async function logSetAction(
     .eq("set_number", parsed.data.set_number)
     .maybeSingle();
 
+  const isUpdate = !!existing;
+
   if (existing) {
     const { error } = await supabase
       .from("exercise_logs")
@@ -131,6 +143,36 @@ export async function logSetAction(
     if (error) {
       log.error("treinos.logSet.insert", error, { scope: "treinos" });
       return { ok: false, error: "Não consegui salvar a série." };
+    }
+  }
+
+  // PR detection roda só em insert e quando há carga > 0. Em re-tap (update)
+  // a aluna está corrigindo um valor — não queremos disparar PR de novo pelo
+  // mesmo set, pq o histórico anterior já contém o valor antigo.
+  if (
+    !isUpdate &&
+    parsed.data.load_kg !== null &&
+    parsed.data.load_kg > 0
+  ) {
+    try {
+      const pr = await detectAndRecordPR({
+        supabase,
+        userId: session.profile.id,
+        tenantId: session.tenant.id,
+        workoutItemId: parsed.data.workout_item_id,
+        newLoadKg: parsed.data.load_kg,
+      });
+      if (pr.isPR) {
+        return {
+          ok: true,
+          isPR: true,
+          newMax: pr.newMax,
+          prevMax: pr.prevMax,
+          exerciseName: pr.exerciseName,
+        };
+      }
+    } catch (err) {
+      log.error("treinos.logSet.pr", err, { scope: "treinos" });
     }
   }
 

@@ -19,6 +19,7 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import { CopyButton } from "@/components/copy-button";
+import { Heatmap90Days, buildLast90DaysCounts } from "@/components/heatmap-90-days";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { PushOptIn } from "@/components/push-opt-in";
 import { buttonVariants } from "@/components/ui/button";
@@ -67,8 +68,10 @@ export default async function StudentProfilePage() {
   const tc = await getTranslations("common");
 
   const supabase = await createClient();
+  const nowMs = new Date().getTime();
+  const ninetyDaysAgo = new Date(nowMs - 90 * 86_400_000).toISOString();
 
-  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes, badgesRes, threadRes] = await Promise.all([
+  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes, badgesRes, threadRes, last90Res] = await Promise.all([
     supabase
       .from("workout_logs")
       .select(
@@ -117,6 +120,13 @@ export default async function StudentProfilePage() {
       .eq("tenant_id", tenant.id)
       .eq("student_id", profile.id)
       .maybeSingle(),
+    supabase
+      .from("workout_logs")
+      .select("completed_at")
+      .eq("student_id", profile.id)
+      .not("completed_at", "is", null)
+      .gte("completed_at", ninetyDaysAgo)
+      .returns<{ completed_at: string }[]>(),
   ]);
   const anamnese = anamneseRes.data;
   const photoCount = photosCountRes.count ?? 0;
@@ -150,6 +160,11 @@ export default async function StudentProfilePage() {
   const plan = planRes.data;
   const referrals = referralsRes.data ?? [];
   const rewardedReferrals = referrals.filter((r) => r.status === "rewarded").length;
+
+  const last90Iso = (last90Res.data ?? [])
+    .map((l) => l.completed_at)
+    .filter((v): v is string => !!v);
+  const heatmap90 = buildLast90DaysCounts(last90Iso);
 
   const initial = (Array.from(profile.full_name)[0] ?? "?").toUpperCase();
   const code = profile.referral_code ?? "—";
@@ -334,6 +349,21 @@ export default async function StudentProfilePage() {
         ) : null}
       </section>
 
+      <section
+        aria-label="Últimos 90 dias"
+        className="flex flex-col gap-3 rounded-2xl border border-border bg-card/30 p-4"
+      >
+        <header className="flex items-center justify-between gap-3">
+          <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            Últimos 90 dias
+          </span>
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {heatmap90.counts.filter((n) => n > 0).length}/91
+          </span>
+        </header>
+        <Heatmap90Days counts={heatmap90.counts} todayIso={heatmap90.todayIso} />
+      </section>
+
       <section className="flex flex-col gap-3">
         <header className="flex items-end justify-between gap-3">
           <h2 className="font-display text-xl">{t("history_title")}</h2>
@@ -487,6 +517,16 @@ export default async function StudentProfilePage() {
             {earnedCount}/{BADGES.length}
           </span>
         </header>
+        <Link
+          href="/equipe"
+          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/30 px-4 py-3 transition-colors hover:bg-card/60"
+        >
+          <span className="flex items-center gap-2">
+            <TrophyIcon className="size-4 text-[var(--brand-primary)]" />
+            <span className="text-sm font-medium">Ver top da equipe</span>
+          </span>
+          <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
+        </Link>
         <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {BADGES.map((b) => {
             const earned = earnedBadgeKeys.has(b.key);

@@ -34,10 +34,7 @@ export function MoreNavItem() {
         <span className="text-[11px] leading-none">Mais</span>
       </SheetTrigger>
 
-      <SheetContent
-        side="bottom"
-        className="rounded-t-2xl border-border bg-card pb-[calc(env(safe-area-inset-bottom)+1rem)]"
-      >
+      <SheetContent side="bottom" className="border-border bg-card">
         <SheetHeader>
           <SheetTitle className="font-display text-2xl">Mais opções</SheetTitle>
           <SheetDescription>Configurações e sessão.</SheetDescription>

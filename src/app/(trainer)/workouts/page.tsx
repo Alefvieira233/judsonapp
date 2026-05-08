@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { FilesIcon, PlusIcon } from "lucide-react";
+import { FilesIcon, PlusIcon, UserIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 
+import { ExerciseIcon, muscleToneClass } from "@/components/exercise/exercise-icon";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
@@ -28,6 +29,11 @@ type WorkoutRow = {
   student_id: string | null;
   student: { id: string; full_name: string } | null;
   items: { count: number }[];
+};
+
+type ItemMuscleRow = {
+  workout_id: string;
+  exercise: { muscle_group: string | null } | null;
 };
 
 function parseView(raw: string | string[] | undefined): View {
@@ -92,6 +98,31 @@ export default async function WorkoutsPage({
 
   const workouts = data ?? [];
 
+  // Aggregate dominant muscle groups per workout for hero icons.
+  const dominantMuscleByWorkout = new Map<string, string | null>();
+  if (workouts.length > 0) {
+    const { data: itemsData } = await supabase
+      .from("workout_items")
+      .select(`workout_id, exercise:exercises(muscle_group)`)
+      .in(
+        "workout_id",
+        workouts.map((w) => w.id),
+      )
+      .returns<ItemMuscleRow[]>();
+    const counts = new Map<string, Map<string, number>>();
+    for (const row of itemsData ?? []) {
+      const mg = row.exercise?.muscle_group;
+      if (!mg) continue;
+      const inner = counts.get(row.workout_id) ?? new Map();
+      inner.set(mg, (inner.get(mg) ?? 0) + 1);
+      counts.set(row.workout_id, inner);
+    }
+    for (const [workoutId, inner] of counts) {
+      const sorted = [...inner.entries()].sort((a, b) => b[1] - a[1]);
+      dominantMuscleByWorkout.set(workoutId, sorted[0]?.[0] ?? null);
+    }
+  }
+
   const { data: studentsData } = await supabase
     .from("profiles")
     .select("id, full_name")
@@ -140,45 +171,63 @@ export default async function WorkoutsPage({
       {workouts.length === 0 ? (
         <EmptyState view={view} />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-3 md:grid-cols-2">
           {workouts.map((w) => {
             const isTemplate = w.student_id == null;
+            const dominantMg = dominantMuscleByWorkout.get(w.id) ?? null;
+            const itemCount = w.items?.[0]?.count ?? 0;
             return (
               <li key={w.id}>
-                <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/40 p-4 transition-colors hover:bg-card">
+                <div
+                  className={`group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-gradient-to-br p-4 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[var(--brand-primary)]/40 ${muscleToneClass(dominantMg, null)}`}
+                >
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute -right-10 -top-10 size-36 rounded-full bg-[var(--brand-primary)]/8 opacity-0 blur-3xl transition-opacity duration-500 group-hover:opacity-100"
+                  />
+
                   <Link
                     href={`/workouts/${w.id}`}
-                    className="flex items-start justify-between gap-3"
+                    className="relative flex items-start gap-3"
                   >
-                    <div className="flex min-w-0 flex-col gap-1">
+                    <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-background/60">
+                      <ExerciseIcon muscleGroup={dominantMg} size={6} />
+                    </span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
                       <span className="truncate font-display text-2xl leading-tight">
                         {w.title}
                       </span>
-                      <span className="text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
                         {isTemplate ? (
-                          <Badge variant="outline" className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground"
+                          >
                             {t("is_template")}
                           </Badge>
                         ) : (
-                          <>{w.student?.full_name ?? t("student_removed")}</>
+                          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 px-2 py-0.5 text-foreground">
+                            <UserIcon className="size-3" aria-hidden />
+                            <span className="truncate max-w-[10rem]">
+                              {w.student?.full_name ?? t("student_removed")}
+                            </span>
+                          </span>
                         )}
-                        <span className="ml-2">
-                          {(() => {
-                            const count = w.items?.[0]?.count ?? 0;
-                            return count === 1
-                              ? t("exercise_one", { count })
-                              : t("exercise_other", { count });
-                          })()}
+                        <span className="tabular-nums">
+                          {itemCount === 1
+                            ? t("exercise_one", { count: itemCount })
+                            : t("exercise_other", { count: itemCount })}
                         </span>
-                      </span>
+                      </div>
                     </div>
                     {w.active === false ? (
-                      <Badge variant="outline" className="text-muted-foreground">
+                      <Badge variant="outline" className="shrink-0 text-muted-foreground">
                         {t("inactive")}
                       </Badge>
                     ) : null}
                   </Link>
-                  <div className="flex items-center justify-between gap-3">
+
+                  <div className="relative flex items-center justify-between gap-3">
                     <DaysRow days={w.scheduled_days ?? []} />
                     {isTemplate ? (
                       <AssignTemplateButton

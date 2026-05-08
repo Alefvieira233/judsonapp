@@ -11,6 +11,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      // Toasts entram em top-center; mobile precisa empurrar pra baixo do
+      // header sticky (h-14) + safe-area do notch. Desktop usa offset menor.
+      offset={16}
+      mobileOffset={{ top: "calc(env(safe-area-inset-top) + 64px)" }}
       icons={{
         success: (
           <CircleCheckIcon className="size-4" />

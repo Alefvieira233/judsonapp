@@ -101,6 +101,7 @@
     "last_completed_prefix": "último entreno",
     "never": "nunca ejecutado",
     "today": "hoy",
+    "today_pill": "Entreno de hoy",
     "yesterday": "ayer",
     "days_ago": "hace {count} días",
     "weeks_ago": "hace {count} sem",

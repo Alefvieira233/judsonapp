@@ -24,6 +24,8 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ExerciseIcon } from "@/components/exercise/exercise-icon";
+import { MuscleGroupTag } from "@/components/exercise/muscle-group-tag";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -353,38 +355,61 @@ function SortableItem({
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.6 : 1,
+    opacity: isDragging ? 0.85 : 1,
   };
 
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className="flex items-stretch overflow-hidden rounded-xl border border-border bg-card/40"
+      className={`flex items-stretch overflow-hidden rounded-xl border bg-card/40 transition-shadow ${
+        isDragging
+          ? "border-[var(--brand-primary)]/50 shadow-lg shadow-[var(--brand-primary)]/20"
+          : "border-border"
+      }`}
     >
       <button
         type="button"
         aria-label={dragLabel}
-        className="flex shrink-0 cursor-grab touch-none items-center justify-center px-2 text-muted-foreground active:cursor-grabbing"
+        className="flex shrink-0 cursor-grab touch-none items-center justify-center px-2 text-muted-foreground active:cursor-grabbing hover:text-foreground"
         {...attributes}
         {...listeners}
       >
         <GripVerticalIcon className="size-5" />
       </button>
 
+      <span className="grid shrink-0 place-items-center self-center">
+        <span className="grid size-10 place-items-center rounded-lg border border-border bg-background/60">
+          <ExerciseIcon muscleGroup={item.muscle_group} size={5} />
+        </span>
+      </span>
+
       <button
         type="button"
         onClick={onEdit}
-        className="flex flex-1 flex-col items-start gap-1 px-2 py-3 text-left"
+        className="flex flex-1 flex-col items-start gap-1 px-3 py-3 text-left"
       >
         <span className="font-medium leading-tight text-foreground">
           {item.exercise_name}
         </span>
-        <span className="text-xs text-muted-foreground">
-          {item.sets} × {item.reps}
-          {item.rest_seconds ? ` · ${item.rest_seconds}s` : ""}
-          {item.load_suggestion ? ` · ${item.load_suggestion}` : ""}
-        </span>
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 px-2 py-0.5 font-semibold text-foreground tabular-nums">
+            {item.sets}× {item.reps}
+          </span>
+          {item.rest_seconds ? (
+            <span className="rounded-full border border-border bg-card/60 px-2 py-0.5 tabular-nums">
+              {item.rest_seconds}s
+            </span>
+          ) : null}
+          {item.load_suggestion ? (
+            <span className="rounded-full border border-border bg-card/60 px-2 py-0.5">
+              {item.load_suggestion}
+            </span>
+          ) : null}
+          {item.muscle_group ? (
+            <MuscleGroupTag muscleGroup={item.muscle_group} showIcon={false} />
+          ) : null}
+        </div>
       </button>
 
       <div className="flex">
@@ -392,7 +417,7 @@ function SortableItem({
           type="button"
           onClick={onEdit}
           aria-label={editLabel}
-          className="grid w-10 place-items-center text-muted-foreground hover:text-foreground"
+          className="grid w-10 place-items-center text-muted-foreground transition-colors hover:text-foreground"
         >
           <PencilIcon className="size-4" />
         </button>
@@ -400,7 +425,7 @@ function SortableItem({
           type="button"
           onClick={onDelete}
           aria-label={removeLabel}
-          className="grid w-10 place-items-center text-muted-foreground hover:text-destructive"
+          className="grid w-10 place-items-center text-muted-foreground transition-colors hover:text-destructive"
         >
           <TrashIcon className="size-4" />
         </button>

@@ -19,6 +19,8 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { ExerciseIcon, muscleToneClass } from "@/components/exercise/exercise-icon";
+import { MuscleGroupTag } from "@/components/exercise/muscle-group-tag";
 import { ShareStoryDialog } from "@/components/share-story-dialog";
 import { VideoEmbed } from "@/components/video-embed";
 import {
@@ -372,23 +374,47 @@ export function WorkoutRunner({
         {items.map((item) => (
           <li
             key={item.id}
-            className="flex flex-col gap-3 rounded-2xl border border-border bg-card/40 p-4"
+            className={cn(
+              "relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-border bg-gradient-to-br p-4 transition-colors",
+              muscleToneClass(item.muscle_group, null),
+            )}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-                  {item.muscle_group ?? t("exercise_default")}
-                </span>
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -right-10 -top-10 size-32 rounded-full bg-[var(--brand-primary)]/8 blur-3xl"
+            />
+
+            <div className="relative flex items-start gap-3">
+              <span className="grid size-12 shrink-0 place-items-center rounded-xl border border-border bg-background/60">
+                <ExerciseIcon muscleGroup={item.muscle_group} size={6} />
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="font-display text-2xl leading-tight">
                   {item.exercise_name}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  {item.sets}x {item.reps}
-                  {item.load_suggestion ? ` · ${item.load_suggestion}` : ""}
-                  {item.last_load
-                    ? ` · ${t("last_load", { kg: item.last_load })}`
-                    : ""}
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center rounded-full border border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/10 px-2 py-0.5 text-[11px] font-semibold text-foreground tabular-nums">
+                    {item.sets}× {item.reps}
+                  </span>
+                  {item.rest_seconds ? (
+                    <span className="inline-flex items-center rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground tabular-nums">
+                      {t("rest")} {item.rest_seconds}s
+                    </span>
+                  ) : null}
+                  {item.load_suggestion ? (
+                    <span className="inline-flex items-center rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                      {item.load_suggestion}
+                    </span>
+                  ) : null}
+                  {item.last_load ? (
+                    <span className="inline-flex items-center rounded-full border border-border bg-card/60 px-2 py-0.5 text-[11px] text-muted-foreground">
+                      {t("last_load", { kg: item.last_load })}
+                    </span>
+                  ) : null}
+                  <MuscleGroupTag
+                    muscleGroup={item.muscle_group ?? t("exercise_default")}
+                  />
+                </div>
                 {item.notes ? (
                   <p className="mt-1 text-xs text-muted-foreground">
                     {item.notes}
@@ -398,7 +424,7 @@ export function WorkoutRunner({
             </div>
 
             {item.video_url ? (
-              <div className="overflow-hidden rounded-xl border border-border bg-black">
+              <div className="relative overflow-hidden rounded-xl border border-border bg-black">
                 <div className="aspect-video w-full">
                   <VideoEmbed
                     url={item.video_url}
@@ -408,7 +434,7 @@ export function WorkoutRunner({
               </div>
             ) : null}
 
-            <ol className="flex flex-col gap-2">
+            <ol className="relative flex flex-col gap-2">
               {Array.from({ length: item.sets }, (_, i) => i + 1).map((n) => {
                 const key = makeKey(item.id, n);
                 const state = sets[key];

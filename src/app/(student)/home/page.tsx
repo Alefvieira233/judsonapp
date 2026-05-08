@@ -13,6 +13,10 @@ import {
 import { getTranslations } from "next-intl/server";
 
 import { Sparkline } from "@/components/charts";
+import {
+  ExerciseIcon,
+  muscleToneClass,
+} from "@/components/exercise/exercise-icon";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentStudent } from "@/lib/auth";
 import { computeStreak, greetingKey, startOfDay } from "@/lib/dates";
@@ -246,6 +250,35 @@ export default async function StudentHomePage() {
   const todayIsScheduled = !!today?.scheduled_days?.includes(todayDow);
   const upcoming = workouts.filter((w) => w.id !== today?.id).slice(0, 3);
   const todayItemCount = today?.items?.[0]?.count ?? 0;
+
+  // Pick dominant muscle group for the visible workouts (today + upcoming).
+  const visibleWorkoutIds = [today?.id, ...upcoming.map((w) => w.id)].filter(
+    (v): v is string => !!v,
+  );
+  const muscleByWorkout = new Map<string, string | null>();
+  if (visibleWorkoutIds.length > 0) {
+    const { data: itemsData } = await supabase
+      .from("workout_items")
+      .select(`workout_id, exercise:exercises(muscle_group)`)
+      .in("workout_id", visibleWorkoutIds)
+      .returns<{
+        workout_id: string;
+        exercise: { muscle_group: string | null } | null;
+      }[]>();
+    const counts = new Map<string, Map<string, number>>();
+    for (const row of itemsData ?? []) {
+      const mg = row.exercise?.muscle_group;
+      if (!mg) continue;
+      const inner = counts.get(row.workout_id) ?? new Map();
+      inner.set(mg, (inner.get(mg) ?? 0) + 1);
+      counts.set(row.workout_id, inner);
+    }
+    for (const [workoutId, inner] of counts) {
+      const sorted = [...inner.entries()].sort((a, b) => b[1] - a[1]);
+      muscleByWorkout.set(workoutId, sorted[0]?.[0] ?? null);
+    }
+  }
+  const todayMuscle = today ? muscleByWorkout.get(today.id) ?? null : null;
   const plan = plansRes.data;
   const completedDates = (logsRes.data ?? [])
     .map((l) => l.completed_at)
@@ -457,22 +490,35 @@ export default async function StudentHomePage() {
       {today ? (
         <Link
           href={`/treinos/${today.id}`}
-          className="group flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--brand-primary)]/30 bg-gradient-to-br from-[var(--brand-primary)]/10 via-card/50 to-card/40 p-5 transition-colors hover:border-[var(--brand-primary)]/50"
+          className="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--brand-primary)]/30 bg-gradient-to-br from-[var(--brand-primary)]/12 via-card/50 to-card/40 p-5 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[var(--brand-primary)]/50"
         >
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[11px] uppercase tracking-[0.3em] text-[var(--brand-primary)]">
-              {todayIsScheduled ? t("today_pill") : t("next_pill")}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-12 -top-12 size-48 rounded-full bg-[var(--brand-primary)]/15 blur-3xl"
+          />
+          <div className="relative flex items-start gap-3">
+            <span className="grid size-14 shrink-0 place-items-center rounded-2xl border border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/15 shadow-sm shadow-[var(--brand-primary)]/20">
+              <ExerciseIcon muscleGroup={todayMuscle} size={7} />
             </span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              {todayItemCount}{" "}
-              {todayItemCount === 1 ? t("exercise_one") : t("exercise_other")}
-            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[11px] uppercase tracking-[0.3em] text-[var(--brand-primary)]">
+                  {todayIsScheduled ? t("today_pill") : t("next_pill")}
+                </span>
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+                  {todayItemCount}{" "}
+                  {todayItemCount === 1 ? t("exercise_one") : t("exercise_other")}
+                </span>
+              </div>
+              <p className="font-display text-3xl leading-tight">{today.title}</p>
+            </div>
           </div>
-          <p className="font-display text-3xl leading-tight">{today.title}</p>
           {today.description ? (
-            <p className="text-sm text-muted-foreground">{today.description}</p>
+            <p className="relative text-sm text-muted-foreground">
+              {today.description}
+            </p>
           ) : null}
-          <span className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors group-hover:text-[var(--brand-primary)]">
+          <span className="relative mt-1 inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors group-hover:text-[var(--brand-primary)]">
             <DumbbellIcon className="size-4" /> {t("start_workout")} →
           </span>
         </Link>
@@ -484,30 +530,36 @@ export default async function StudentHomePage() {
         <section className="flex flex-col gap-3">
           <h2 className="font-display text-xl">{t("other_workouts")}</h2>
           <ul className="flex flex-col gap-2">
-            {upcoming.map((w) => (
-              <li key={w.id}>
-                <Link
-                  href={`/treinos/${w.id}`}
-                  className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/30 p-4 transition-colors hover:bg-card/60"
-                >
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate font-display text-lg leading-tight">
-                      {w.title}
+            {upcoming.map((w) => {
+              const mg = muscleByWorkout.get(w.id) ?? null;
+              return (
+                <li key={w.id}>
+                  <Link
+                    href={`/treinos/${w.id}`}
+                    className={`group flex items-center gap-3 rounded-xl border border-border bg-gradient-to-br p-4 transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-[var(--brand-primary)]/30 ${muscleToneClass(mg, null)}`}
+                  >
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-background/60">
+                      <ExerciseIcon muscleGroup={mg} size={5} />
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {w.items?.[0]?.count ?? 0} {t("exercise_other")}
-                      {w.scheduled_days && w.scheduled_days.length > 0
-                        ? ` · ${formatDays(w.scheduled_days, t("all_days"))}`
-                        : ""}
-                    </span>
-                  </div>
-                  <CalendarDaysIcon
-                    className="size-4 shrink-0 text-muted-foreground"
-                    aria-hidden
-                  />
-                </Link>
-              </li>
-            ))}
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-display text-lg leading-tight">
+                        {w.title}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {w.items?.[0]?.count ?? 0} {t("exercise_other")}
+                        {w.scheduled_days && w.scheduled_days.length > 0
+                          ? ` · ${formatDays(w.scheduled_days, t("all_days"))}`
+                          : ""}
+                      </span>
+                    </div>
+                    <CalendarDaysIcon
+                      className="size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
+                      aria-hidden
+                    />
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}

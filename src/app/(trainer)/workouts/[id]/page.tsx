@@ -36,7 +36,7 @@ export default async function WorkoutPage({
     supabase
       .from("workout_items")
       .select(
-        "id, exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes, exercise:exercises(id, name, muscle_group, equipment)",
+        "id, exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes, mode, exercise:exercises(id, name, muscle_group, equipment)",
       )
       .eq("workout_id", id)
       .order("position"),
@@ -65,6 +65,7 @@ export default async function WorkoutPage({
     rest_seconds: number | null;
     load_suggestion: string | null;
     notes: string | null;
+    mode: string;
     exercise: { id: string; name: string; muscle_group: string | null; equipment: string | null } | null;
   };
 
@@ -91,6 +92,7 @@ export default async function WorkoutPage({
           rest_seconds: it.rest_seconds,
           load_suggestion: it.load_suggestion,
           notes: it.notes,
+          mode: it.mode === "seconds" ? "seconds" : "reps",
         }))}
         students={studentsRes.data ?? []}
         exercises={exercisesRes.data ?? []}

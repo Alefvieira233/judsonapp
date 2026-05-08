@@ -48,6 +48,8 @@ function buildCsp(nonce: string): string {
       // Sentry endpoints when configured. Use the Sentry tunnel for less FPs.
       "https://*.ingest.sentry.io",
       "https://*.ingest.us.sentry.io",
+      // Asaas: status calls e fetch do checkout link.
+      "https://*.asaas.com",
     ].filter(Boolean),
     "frame-src": [
       "'self'",
@@ -55,6 +57,8 @@ function buildCsp(nonce: string): string {
       "https://www.youtube-nocookie.com",
       "https://www.instagram.com",
       "https://player.vimeo.com",
+      // Asaas eventualmente embeda o checkout em iframe.
+      "https://*.asaas.com",
     ],
     "frame-ancestors": ["'none'"],
     "form-action": ["'self'"],

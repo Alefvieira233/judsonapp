@@ -54,6 +54,7 @@ export type BuilderItem = {
   rest_seconds: number | null;
   load_suggestion: string | null;
   notes: string | null;
+  mode: "reps" | "seconds";
 };
 
 type Workout = {
@@ -125,6 +126,7 @@ export function WorkoutBuilder({
       rest_seconds: 60,
       load_suggestion: null,
       notes: null,
+      mode: "reps",
     };
     setItems((prev) => [...prev, newItem]);
     setPicking(false);
@@ -166,6 +168,7 @@ export function WorkoutBuilder({
       const itemsRes = await saveWorkoutItemsAction({
         workout_id: workout.id,
         items: items.map((it, idx) => ({
+          id: it.id,
           exercise_id: it.exercise_id,
           position: idx,
           sets: it.sets,
@@ -173,6 +176,7 @@ export function WorkoutBuilder({
           rest_seconds: it.rest_seconds,
           load_suggestion: it.load_suggestion,
           notes: it.notes,
+          mode: it.mode,
         })),
       });
       if (itemsRes.error) {
@@ -443,6 +447,24 @@ function ItemForm({
 
   return (
     <div className="flex flex-col gap-4 px-4 pb-4">
+      <div className="flex items-center gap-1 self-start rounded-lg border border-border bg-background p-1 text-xs">
+        {(["reps", "seconds"] as const).map((m) => (
+          <button
+            key={m}
+            type="button"
+            onClick={() => set("mode", m)}
+            aria-pressed={draft.mode === m}
+            className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+              draft.mode === m
+                ? "bg-[var(--brand-primary)] text-white"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {m === "reps" ? "Repetições" : "Tempo"}
+          </button>
+        ))}
+      </div>
+
       <div className="grid grid-cols-3 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="sets">Séries</Label>
@@ -457,12 +479,12 @@ function ItemForm({
           />
         </div>
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="reps">Reps</Label>
+          <Label htmlFor="reps">{draft.mode === "seconds" ? "Tempo" : "Reps"}</Label>
           <Input
             id="reps"
             value={draft.reps}
             onChange={(e) => set("reps", e.target.value)}
-            placeholder="10-12"
+            placeholder={draft.mode === "seconds" ? "30s" : "10-12"}
           />
         </div>
         <div className="flex flex-col gap-1.5">

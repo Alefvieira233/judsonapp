@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
+import { type BadgeDef, evaluateBadges } from "@/lib/badges";
 import { createClient } from "@/lib/supabase/server";
 
 const startSchema = z.object({
@@ -142,9 +143,13 @@ const completeSchema = z.object({
   notes: z.string().trim().max(500).nullable(),
 });
 
+export type CompleteState =
+  | { ok: true; newBadges: BadgeDef[] }
+  | { ok: false; error: string };
+
 export async function completeWorkoutAction(
   input: z.infer<typeof completeSchema>,
-): Promise<{ ok: boolean; error?: string }> {
+): Promise<CompleteState> {
   const session = await getCurrentStudent();
   if (!session) return { ok: false, error: "Sessão expirada." };
 
@@ -179,10 +184,24 @@ export async function completeWorkoutAction(
     return { ok: false, error: "Não consegui concluir. Tenta de novo." };
   }
 
+  // Avalia badges após o update — se a sessão de hoje fechou um marco
+  // (10º treino, primeira semana 3x, novo streak), o runner mostra a tela
+  // de celebração antes do CompletedScreen normal. Falha aqui não derruba
+  // o complete: badges são bônus, não bloqueio.
+  const newBadges = await evaluateBadges({
+    userId: session.profile.id,
+    tenantId: session.tenant.id,
+    joinedAt: session.profile.joined_at ? new Date(session.profile.joined_at) : null,
+    supabase,
+  }).catch((err) => {
+    console.error("[treinos.complete.badges]", err);
+    return [] as BadgeDef[];
+  });
+
   revalidatePath("/home");
   revalidatePath("/treinos");
   revalidatePath("/perfil");
-  return { ok: true };
+  return { ok: true, newBadges };
 }
 
 const cancelSchema = z.object({

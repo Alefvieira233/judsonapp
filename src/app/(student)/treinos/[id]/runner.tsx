@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import confetti from "canvas-confetti";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   CheckIcon,
   CircleIcon,
   ClockIcon,
+  MessageCircleIcon,
   PauseIcon,
   PlayIcon,
   TimerIcon,
@@ -42,6 +44,13 @@ import {
   startWorkoutAction,
 } from "./actions";
 
+type RunnerBadge = {
+  key: string;
+  title: string;
+  description: string;
+  icon: string;
+};
+
 export type RunnerWorkout = {
   id: string;
   title: string;
@@ -56,6 +65,7 @@ export type RunnerItem = {
   rest_seconds: number;
   load_suggestion: string | null;
   notes: string | null;
+  mode: "reps" | "seconds";
   exercise_name: string;
   muscle_group: string | null;
   last_load: number | null;
@@ -66,6 +76,7 @@ export type RunnerItem = {
 
 type SetState = {
   done: boolean;
+  // For mode='reps' = reps; for mode='seconds' = segundos guardados.
   reps: string;
   load: string;
 };
@@ -120,6 +131,7 @@ export function WorkoutRunner({
   const [completed, setCompleted] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [abortOpen, setAbortOpen] = useState(false);
+  const [pendingBadges, setPendingBadges] = useState<RunnerBadge[]>([]);
   const [sets, setSets] = useState<Record<string, SetState>>(() => {
     const init: Record<string, SetState> = {};
     for (const item of items) {
@@ -257,10 +269,28 @@ export function WorkoutRunner({
       setCompleteOpen(false);
       setCompleted(true);
       fireConfetti();
+      if (res.newBadges.length > 0) {
+        setPendingBadges(
+          res.newBadges.map((b) => ({
+            key: b.key,
+            title: b.title,
+            description: b.description,
+            icon: b.icon,
+          })),
+        );
+      }
     });
   };
 
+  const dismissBadge = () => {
+    setPendingBadges((prev) => prev.slice(1));
+  };
+
   if (completed) {
+    if (pendingBadges.length > 0) {
+      const badge = pendingBadges[0];
+      return <BadgeCelebration badge={badge} onContinue={dismissBadge} />;
+    }
     return (
       <CompletedScreen
         title={workout.title}
@@ -370,16 +400,31 @@ export function WorkoutRunner({
                 const key = makeKey(item.id, n);
                 const state = sets[key];
                 if (!state) return null;
+                const targetSeconds = item.mode === "seconds"
+                  ? parseTargetSeconds(item.reps)
+                  : null;
                 return (
                   <li key={key}>
-                    <SetRow
-                      setNumber={n}
-                      state={state}
-                      disabled={!running}
-                      onChangeReps={(v) => updateSet(key, { reps: v })}
-                      onChangeLoad={(v) => updateSet(key, { load: v })}
-                      onToggle={() => toggleDone(item, n)}
-                    />
+                    {item.mode === "seconds" ? (
+                      <TimedSetRow
+                        setNumber={n}
+                        state={state}
+                        disabled={!running}
+                        targetSeconds={targetSeconds}
+                        onChangeSeconds={(v) => updateSet(key, { reps: v })}
+                        onChangeLoad={(v) => updateSet(key, { load: v })}
+                        onToggle={() => toggleDone(item, n)}
+                      />
+                    ) : (
+                      <SetRow
+                        setNumber={n}
+                        state={state}
+                        disabled={!running}
+                        onChangeReps={(v) => updateSet(key, { reps: v })}
+                        onChangeLoad={(v) => updateSet(key, { load: v })}
+                        onToggle={() => toggleDone(item, n)}
+                      />
+                    )}
                   </li>
                 );
               })}
@@ -669,5 +714,208 @@ function CompletedScreen({
         Voltar para o início
       </Button>
     </section>
+  );
+}
+
+// "30s", "30-45 segundos", "1min" → segundos. Defaulta pra 30 se não der parse.
+function parseTargetSeconds(reps: string): number {
+  const t = reps.trim().toLowerCase();
+  const minMatch = t.match(/(\d+)\s*(?:min|m)\b/);
+  if (minMatch) return Math.max(1, parseInt(minMatch[1]!, 10) * 60);
+  const secMatch = t.match(/(\d+)/);
+  if (secMatch) return Math.max(1, parseInt(secMatch[1]!, 10));
+  return 30;
+}
+
+function TimedSetRow({
+  setNumber,
+  state,
+  disabled,
+  targetSeconds,
+  onChangeSeconds,
+  onChangeLoad,
+  onToggle,
+}: {
+  setNumber: number;
+  state: SetState;
+  disabled: boolean;
+  targetSeconds: number | null;
+  onChangeSeconds: (v: string) => void;
+  onChangeLoad: (v: string) => void;
+  onToggle: () => void;
+}) {
+  const target = targetSeconds ?? 30;
+  const [running, setRunning] = useState(false);
+  const [remaining, setRemaining] = useState(target);
+  const startedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setInterval(() => {
+      setRemaining((cur) => {
+        if (cur <= 1) {
+          window.clearInterval(id);
+          // Beep-ish: vibration on supported devices.
+          if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+            navigator.vibrate?.(200);
+          }
+          setRunning(false);
+          startedAtRef.current = null;
+          onChangeSeconds(target.toString());
+          return 0;
+        }
+        return cur - 1;
+      });
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [running, target, onChangeSeconds]);
+
+  const start = () => {
+    if (disabled || state.done) return;
+    setRunning(true);
+    setRemaining(target);
+    startedAtRef.current = Date.now();
+  };
+
+  const stop = () => {
+    if (!running) return;
+    const elapsed = startedAtRef.current
+      ? Math.max(1, Math.round((Date.now() - startedAtRef.current) / 1000))
+      : target - remaining;
+    setRunning(false);
+    startedAtRef.current = null;
+    onChangeSeconds(elapsed.toString());
+    setRemaining(target);
+  };
+
+  const display = running ? remaining : state.reps ? Number(state.reps) : target;
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-xl border border-border bg-background/60 p-2 transition-colors",
+        state.done && "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/5",
+      )}
+    >
+      <span className="grid size-11 shrink-0 place-items-center rounded-md bg-card font-display text-base text-muted-foreground">
+        {setNumber}
+      </span>
+      <button
+        type="button"
+        onClick={running ? stop : start}
+        disabled={disabled || state.done}
+        className={cn(
+          "flex h-12 flex-1 items-center justify-center gap-2 rounded-md border text-sm font-semibold transition-colors",
+          running
+            ? "border-[var(--brand-primary)] bg-[var(--brand-primary)]/10 text-foreground"
+            : "border-border bg-card text-muted-foreground hover:text-foreground",
+          (disabled || state.done) && "opacity-60",
+        )}
+      >
+        <TimerIcon className="size-4" />
+        <span className="font-display text-xl tabular-nums">
+          {formatTime(display)}
+        </span>
+        <span className="text-[10px] uppercase tracking-[0.2em]">
+          {running ? "parar" : state.done ? "feito" : "iniciar"}
+        </span>
+      </button>
+      <Input
+        inputMode="decimal"
+        type="text"
+        aria-label={`Carga série ${setNumber}`}
+        placeholder="kg"
+        value={state.load}
+        onChange={(e) =>
+          onChangeLoad(
+            e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."),
+          )
+        }
+        disabled={disabled || state.done}
+        className="h-12 w-full max-w-[88px] text-center text-lg font-semibold tabular-nums"
+      />
+      <button
+        type="button"
+        onClick={onToggle}
+        disabled={disabled}
+        aria-label={state.done ? "Desfazer série" : "Marcar série"}
+        className={cn(
+          "ml-auto grid size-12 shrink-0 place-items-center rounded-full transition-all active:scale-95",
+          state.done
+            ? "bg-[var(--brand-primary)] text-white shadow-md shadow-[var(--brand-primary)]/30"
+            : "border border-border bg-card text-muted-foreground hover:border-[var(--brand-primary)] hover:text-foreground",
+          disabled && "opacity-40",
+        )}
+      >
+        {state.done ? <CheckIcon className="size-6" /> : <CircleIcon className="size-6" />}
+      </button>
+    </div>
+  );
+}
+
+function BadgeCelebration({
+  badge,
+  onContinue,
+}: {
+  badge: RunnerBadge;
+  onContinue: () => void;
+}) {
+  const shareText = `Acabei de desbloquear "${badge.title}" no app do Judson Lobato 🔥`;
+  const shareUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
+  return (
+    <AnimatePresence mode="wait">
+      <motion.section
+        key={badge.key}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="flex flex-1 flex-col items-center justify-center gap-6 px-6 py-12 text-center"
+      >
+        <span className="text-xs uppercase tracking-[0.4em] text-[var(--brand-primary)]">
+          Conquista desbloqueada
+        </span>
+        <motion.div
+          initial={{ scale: 0.5, rotate: -10, opacity: 0 }}
+          animate={{ scale: 1, rotate: 0, opacity: 1 }}
+          transition={{ type: "spring", stiffness: 220, damping: 14 }}
+          className="grid size-40 place-items-center rounded-full bg-gradient-to-br from-[var(--brand-primary)] to-[var(--brand-primary-strong,#991B1B)] text-7xl shadow-xl shadow-[var(--brand-primary)]/40"
+          aria-hidden
+        >
+          {badge.icon}
+        </motion.div>
+        <motion.div
+          initial={{ y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.15 }}
+          className="flex flex-col items-center gap-2"
+        >
+          <h1 className="font-display text-4xl leading-[0.95]">{badge.title}</h1>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            {badge.description}
+          </p>
+        </motion.div>
+        <motion.div
+          initial={{ y: 12, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="flex w-full max-w-sm flex-col gap-2"
+        >
+          <a
+            href={shareUrl}
+            target="_blank"
+            rel="noreferrer"
+            className={cn(
+              "inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-card text-sm font-medium transition-colors hover:bg-card/70",
+            )}
+          >
+            <MessageCircleIcon className="size-4" /> Compartilhar no WhatsApp
+          </a>
+          <Button size="lg" className="w-full" onClick={onContinue}>
+            Continuar
+          </Button>
+        </motion.div>
+      </motion.section>
+    </AnimatePresence>
   );
 }

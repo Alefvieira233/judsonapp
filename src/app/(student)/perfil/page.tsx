@@ -9,14 +9,18 @@ import {
   FlameIcon,
   GiftIcon,
   ListChecksIcon,
+  LockIcon,
   MessageCircleIcon,
   SparklesIcon,
   Trash2Icon,
+  TrophyIcon,
 } from "lucide-react";
 
 import { CopyButton } from "@/components/copy-button";
+import { PushOptIn } from "@/components/push-opt-in";
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentStudent } from "@/lib/auth";
+import { BADGES } from "@/lib/badges";
 import { createClient } from "@/lib/supabase/server";
 
 import { LogoutButton } from "./logout-button";
@@ -89,7 +93,7 @@ export default async function StudentProfilePage() {
 
   const supabase = await createClient();
 
-  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes] = await Promise.all([
+  const [logsRes, planRes, referralsRes, anamneseRes, photosCountRes, badgesRes] = await Promise.all([
     supabase
       .from("workout_logs")
       .select(
@@ -126,9 +130,17 @@ export default async function StudentProfilePage() {
       .from("progress_photos")
       .select("id", { count: "exact", head: true })
       .eq("student_id", profile.id),
+    supabase
+      .from("badges_earned")
+      .select("badge_key, earned_at")
+      .eq("user_id", profile.id)
+      .order("earned_at", { ascending: false })
+      .returns<{ badge_key: string; earned_at: string }[]>(),
   ]);
   const anamnese = anamneseRes.data;
   const photoCount = photosCountRes.count ?? 0;
+  const earnedBadgeKeys = new Set((badgesRes.data ?? []).map((b) => b.badge_key));
+  const earnedCount = earnedBadgeKeys.size;
 
   const completed = logsRes.data ?? [];
   const total = completed.length;
@@ -409,6 +421,52 @@ export default async function StudentProfilePage() {
         />
       </Link>
 
+      <section className="flex flex-col gap-3">
+        <header className="flex items-end justify-between gap-3">
+          <h2 className="flex items-center gap-2 font-display text-xl">
+            <TrophyIcon className="size-5 text-[var(--brand-primary)]" />
+            Conquistas
+          </h2>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {earnedCount}/{BADGES.length}
+          </span>
+        </header>
+        <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+          {BADGES.map((b) => {
+            const earned = earnedBadgeKeys.has(b.key);
+            return (
+              <li
+                key={b.key}
+                title={earned ? b.description : `Como destravar: ${b.condition}`}
+                className={`flex flex-col items-center gap-1 rounded-xl border p-3 text-center transition-colors ${
+                  earned
+                    ? "border-[var(--brand-primary)]/40 bg-gradient-to-br from-[var(--brand-primary)]/10 to-card/40"
+                    : "border-dashed border-border bg-card/20"
+                }`}
+              >
+                <span
+                  className={`grid size-12 place-items-center rounded-full text-2xl ${
+                    earned
+                      ? "bg-[var(--brand-primary)]/20"
+                      : "bg-card text-muted-foreground"
+                  }`}
+                  aria-hidden
+                >
+                  {earned ? b.icon : <LockIcon className="size-4" />}
+                </span>
+                <span
+                  className={`text-[11px] font-medium leading-tight ${
+                    earned ? "text-foreground" : "text-muted-foreground"
+                  }`}
+                >
+                  {b.title}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
       <section className="flex flex-col gap-2">
         <Link
           href="/perfil/editar"
@@ -432,6 +490,13 @@ export default async function StudentProfilePage() {
         </a>
 
         <LogoutButton />
+      </section>
+
+      <section className="flex flex-col gap-2 pt-4">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+          Notificações
+        </span>
+        <PushOptIn />
       </section>
 
       <section className="flex flex-col gap-2 pt-4">

@@ -181,7 +181,7 @@ export default async function StudentDetailPage({
       .returns<{ id: string; full_name: string }[]>(),
   ]);
 
-  const [anamneseRes, lastAssessRes, photosCountRes] = await Promise.all([
+  const [anamneseRes, lastAssessRes, photosCountRes, subRes] = await Promise.all([
     supabase
       .from("anamneses")
       .select("signed_at, reviewed_at, has_heart_condition, has_chest_pain, has_dizziness, is_pregnant")
@@ -201,10 +201,24 @@ export default async function StudentDetailPage({
       .select("id", { count: "exact", head: true })
       .eq("tenant_id", session.tenant.id)
       .eq("student_id", id),
+    supabase
+      .from("subscriptions")
+      .select("id, status, current_period_end")
+      .eq("tenant_id", session.tenant.id)
+      .eq("student_id", id)
+      .in("status", ["active", "past_due", "pending"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   const anamnese = anamneseRes.data;
   const lastAssess = lastAssessRes.data;
   const photoCount = photosCountRes.count ?? 0;
+  const subscription = subRes.data as {
+    id: string;
+    status: string;
+    current_period_end: string | null;
+  } | null;
   const anamneseFlags = anamnese
     ? !!(
         anamnese.has_heart_condition ||
@@ -288,6 +302,8 @@ export default async function StudentDetailPage({
         currentPlanId={student.current_plan_id ?? null}
         plans={plans}
       />
+
+      {subscription ? <SubscriptionBadge subscription={subscription} /> : null}
 
       <section className="flex flex-col gap-2">
         <h2 className="font-display text-lg">Saúde</h2>
@@ -451,5 +467,43 @@ function Stat({
       </span>
       <span className="font-display text-2xl leading-none">{value}</span>
     </li>
+  );
+}
+
+function SubscriptionBadge({
+  subscription,
+}: {
+  subscription: { status: string; current_period_end: string | null };
+}) {
+  const tone =
+    subscription.status === "active"
+      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+      : subscription.status === "past_due"
+      ? "border-[var(--brand-primary)]/50 bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+      : "border-border bg-card/40 text-muted-foreground";
+  const label =
+    subscription.status === "active"
+      ? "Assinatura ativa"
+      : subscription.status === "past_due"
+      ? "Pagamento atrasado"
+      : "Aguardando 1º pagamento";
+  const next = subscription.current_period_end
+    ? new Date(subscription.current_period_end).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "2-digit",
+      })
+    : null;
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2 text-xs ${tone}`}
+    >
+      <span className="font-medium">{label}</span>
+      {next ? (
+        <span className="text-muted-foreground">
+          {subscription.status === "past_due" ? "venceu " : "próx. "}
+          {next}
+        </span>
+      ) : null}
+    </div>
   );
 }

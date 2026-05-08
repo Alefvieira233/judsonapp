@@ -123,7 +123,7 @@ export async function duplicateWorkoutAction(formData: FormData): Promise<void> 
 
   const { data: items } = await supabase
     .from("workout_items")
-    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes")
+    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes, mode")
     .eq("workout_id", id)
     .order("position");
 
@@ -155,6 +155,7 @@ export async function duplicateWorkoutAction(formData: FormData): Promise<void> 
         rest_seconds: it.rest_seconds,
         load_suggestion: it.load_suggestion,
         notes: it.notes,
+        mode: it.mode,
       })),
     );
     if (itemsError) {
@@ -202,7 +203,7 @@ export async function cloneWorkoutToStudentAction(formData: FormData): Promise<v
 
   const { data: items } = await supabase
     .from("workout_items")
-    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes")
+    .select("exercise_id, position, sets, reps, rest_seconds, load_suggestion, notes, mode")
     .eq("workout_id", parsed.data.id)
     .order("position");
 
@@ -234,6 +235,7 @@ export async function cloneWorkoutToStudentAction(formData: FormData): Promise<v
         rest_seconds: it.rest_seconds,
         load_suggestion: it.load_suggestion,
         notes: it.notes,
+        mode: it.mode,
       })),
     );
     if (itemsError) {
@@ -276,6 +278,7 @@ const itemsSchema = z.object({
         rest_seconds: z.number().int().min(0).max(600).nullable(),
         load_suggestion: z.string().trim().max(40).nullable(),
         notes: z.string().trim().max(200).nullable(),
+        mode: z.enum(["reps", "seconds"]).default("reps"),
       }),
     )
     .max(50),
@@ -338,6 +341,7 @@ export async function saveWorkoutItemsAction(
       rest_seconds: it.rest_seconds,
       load_suggestion: it.load_suggestion,
       notes: it.notes,
+      mode: it.mode,
     }));
 
   const toUpdate = parsed.data.items
@@ -368,6 +372,7 @@ export async function saveWorkoutItemsAction(
         rest_seconds: it.rest_seconds,
         load_suggestion: it.load_suggestion,
         notes: it.notes,
+        mode: it.mode,
       })
       .eq("id", it.id!);
     if (updError) {

@@ -2,8 +2,11 @@ import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, SparklesIcon } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { isAsaasEnabled } from "@/lib/asaas";
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+
+import { SubscribeButtons } from "./subscribe-buttons";
 
 export const metadata = { title: "Planos" };
 
@@ -19,29 +22,55 @@ type PlanRow = {
   display_order: number | null;
 };
 
+type SubscriptionRow = {
+  id: string;
+  plan_id: string | null;
+  status: string;
+  current_period_end: string | null;
+};
+
 function whatsappLink(number: string, message: string): string {
   const digits = number.replace(/\D/g, "");
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`;
+}
+
+function formatNextBilling(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
 export default async function StudentPlansPage() {
   const session = await getCurrentStudent();
   if (!session) return null;
   const { profile, tenant } = session;
+  const asaasEnabled = isAsaasEnabled();
 
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("plans")
-    .select(
-      "id, name, tagline, description, price_label, features, cta_label, highlight, display_order",
-    )
-    .eq("tenant_id", tenant.id)
-    .eq("active", true)
-    .order("display_order", { ascending: true })
-    .order("created_at", { ascending: true })
-    .returns<PlanRow[]>();
+  const [plansRes, subRes] = await Promise.all([
+    supabase
+      .from("plans")
+      .select(
+        "id, name, tagline, description, price_label, features, cta_label, highlight, display_order",
+      )
+      .eq("tenant_id", tenant.id)
+      .eq("active", true)
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true })
+      .returns<PlanRow[]>(),
+    supabase
+      .from("subscriptions")
+      .select("id, plan_id, status, current_period_end")
+      .eq("student_id", profile.id)
+      .in("status", ["active", "past_due", "pending"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  const plans = data ?? [];
+  const plans = plansRes.data ?? [];
+  const sub = subRes.data as SubscriptionRow | null;
 
   return (
     <section className="flex flex-1 flex-col gap-6 px-5 pb-8 pt-6">
@@ -58,8 +87,9 @@ export default async function StudentPlansPage() {
         </span>
         <h1 className="font-display text-4xl leading-[0.9]">Planos</h1>
         <p className="text-sm text-muted-foreground">
-          Escolhe o nível de acompanhamento que combina com o teu momento. Tu
-          fala com o {tenant.name.split(" ")[0]} pelo WhatsApp pra acertar.
+          {asaasEnabled
+            ? `Escolhe o nível e a forma de pagamento. Pagamento via Pix recorrente, cartão ou boleto, direto pra ${tenant.name.split(" ")[0]}.`
+            : `Escolhe o nível de acompanhamento que combina com o teu momento. Tu fala com o ${tenant.name.split(" ")[0]} pelo WhatsApp pra acertar.`}
         </p>
       </header>
 
@@ -71,6 +101,8 @@ export default async function StudentPlansPage() {
         <ul className="flex flex-col gap-3">
           {plans.map((plan) => {
             const isCurrent = profile.current_plan_id === plan.id;
+            const planSub = sub && sub.plan_id === plan.id ? sub : null;
+            const nextBilling = formatNextBilling(planSub?.current_period_end ?? null);
             const message = `Oi ${tenant.name.split(" ")[0]}! Quero saber mais sobre o plano "${plan.name}".`;
             return (
               <li
@@ -124,7 +156,17 @@ export default async function StudentPlansPage() {
                 {isCurrent ? (
                   <div className="rounded-md border border-[var(--brand-primary)]/40 bg-[var(--brand-primary)]/10 px-3 py-2 text-xs text-foreground">
                     Esse é o teu plano atual.
+                    {nextBilling ? (
+                      <span className="ml-1 text-muted-foreground">
+                        Próxima cobrança em {nextBilling}.
+                      </span>
+                    ) : null}
                   </div>
+                ) : asaasEnabled ? (
+                  <SubscribeButtons
+                    planId={plan.id}
+                    highlight={Boolean(plan.highlight)}
+                  />
                 ) : (
                   <a
                     href={whatsappLink(tenant.whatsapp_number, message)}
@@ -146,8 +188,9 @@ export default async function StudentPlansPage() {
       )}
 
       <p className="text-center text-xs text-muted-foreground">
-        Pagamento via PIX direto pro {tenant.name.split(" ")[0]}. Sem
-        burocracia.
+        {asaasEnabled
+          ? "Pagamento processado por Asaas. Cancela quando quiser."
+          : `Pagamento via PIX direto pro ${tenant.name.split(" ")[0]}. Sem burocracia.`}
       </p>
     </section>
   );

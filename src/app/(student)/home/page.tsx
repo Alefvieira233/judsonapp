@@ -7,11 +7,17 @@ import {
   MessageCircleIcon,
   SparklesIcon,
   TrendingUpIcon,
+  ZapIcon,
 } from "lucide-react";
 
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentStudent } from "@/lib/auth";
 import { computeStreak, startOfDay } from "@/lib/dates";
+import {
+  MUSCLE_LABELS,
+  MUSCLE_ORDER,
+  computeStrengthScoreByMuscle,
+} from "@/lib/strength-score";
 import { createClient } from "@/lib/supabase/server";
 
 import { Heatmap7Days } from "./heatmap-7-days";
@@ -71,7 +77,7 @@ export default async function StudentHomePage() {
   const now = new Date();
   const todayDow = now.getDay();
 
-  const [workoutsRes, plansRes, logsRes] = await Promise.all([
+  const [workoutsRes, plansRes, logsRes, strength] = await Promise.all([
     supabase
       .from("workouts")
       .select(
@@ -98,6 +104,7 @@ export default async function StudentHomePage() {
       .order("completed_at", { ascending: false })
       .limit(60)
       .returns<{ completed_at: string }[]>(),
+    computeStrengthScoreByMuscle({ userId: profile.id, supabase }),
   ]);
 
   const workouts = workoutsRes.data ?? [];
@@ -181,6 +188,47 @@ export default async function StudentHomePage() {
           </span>
         </div>
         <Heatmap7Days days={last7} todayDow={todayDow} />
+      </section>
+
+      <section
+        aria-label="Sua força"
+        className="flex flex-col gap-3 rounded-2xl border border-border bg-card/30 p-4"
+      >
+        <header className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
+            <ZapIcon className="size-3.5 text-[var(--brand-primary)]" />
+            Sua força
+          </span>
+          <span className="text-[10px] text-muted-foreground">últimos 30 dias</span>
+        </header>
+        <ul className="flex flex-col gap-2">
+          {MUSCLE_ORDER.map((m) => {
+            const score = strength[m];
+            return (
+              <li key={m} className="flex items-center gap-3">
+                <span className="w-16 shrink-0 text-xs text-muted-foreground">
+                  {MUSCLE_LABELS[m]}
+                </span>
+                <div
+                  className="h-2 flex-1 overflow-hidden rounded-full bg-card"
+                  role="progressbar"
+                  aria-valuenow={score}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`Força ${MUSCLE_LABELS[m]}`}
+                >
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[var(--brand-primary)]/60 to-[var(--brand-primary)] transition-[width] duration-500"
+                    style={{ width: `${score}%` }}
+                  />
+                </div>
+                <span className="w-10 shrink-0 text-right font-display text-sm tabular-nums">
+                  {score}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       </section>
 
       {today ? (

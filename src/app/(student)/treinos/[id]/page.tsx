@@ -20,6 +20,7 @@ type ItemRow = {
   rest_seconds: number | null;
   load_suggestion: string | null;
   notes: string | null;
+  mode: string;
   exercise: {
     id: string;
     name: string;
@@ -62,7 +63,7 @@ export default async function StudentWorkoutPage({
     supabase
       .from("workout_items")
       .select(
-        `id, position, sets, reps, rest_seconds, load_suggestion, notes,
+        `id, position, sets, reps, rest_seconds, load_suggestion, notes, mode,
          exercise:exercises(id, name, muscle_group, video_url, thumbnail_url)`,
       )
       .eq("workout_id", id)
@@ -109,6 +110,7 @@ export default async function StudentWorkoutPage({
     rest_seconds: it.rest_seconds ?? 60,
     load_suggestion: it.load_suggestion,
     notes: it.notes,
+    mode: it.mode === "seconds" ? "seconds" : "reps",
     exercise_name: it.exercise?.name ?? "Exercício removido",
     muscle_group: it.exercise?.muscle_group ?? null,
     last_load: lastLoadByItem.get(it.id)?.load ?? null,

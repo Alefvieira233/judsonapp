@@ -130,3 +130,41 @@ self.addEventListener("message", (event) => {
     );
   }
 });
+
+// ── Web Push ────────────────────────────────────────────────────────────────
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { title: "Judson App", body: event.data?.text() ?? "" };
+  }
+  const title = data.title || "Judson App";
+  const options = {
+    body: data.body || "",
+    icon: data.icon || "/icons/icon-192.png",
+    badge: data.badge || "/icons/icon-192.png",
+    tag: data.tag,
+    data: { url: data.url || "/" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        try {
+          const url = new URL(client.url);
+          if (url.origin === self.location.origin) {
+            client.focus();
+            return client.navigate ? client.navigate(targetUrl) : undefined;
+          }
+        } catch {}
+      }
+      return self.clients.openWindow(targetUrl);
+    }),
+  );
+});

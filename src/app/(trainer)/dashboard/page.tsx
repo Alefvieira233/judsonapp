@@ -72,6 +72,7 @@ export default async function DashboardPage() {
     recentLogsRes,
     activeStudentsRes,
     studentLogsRes,
+    overdueRes,
   ] = await Promise.all([
       supabase
         .from("profiles")
@@ -123,6 +124,11 @@ export default async function DashboardPage() {
         .order("completed_at", { ascending: false })
         .limit(2000)
         .returns<StudentLog[]>(),
+      supabase
+        .from("subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenant.id)
+        .eq("status", "past_due"),
     ]);
 
   const studentsCount = studentsRes.count ?? 0;
@@ -130,6 +136,7 @@ export default async function DashboardPage() {
   const weekLogs = weekLogsRes.count ?? 0;
   const postsCount = postsRes.count ?? 0;
   const recent = recentLogsRes.data ?? [];
+  const overdueCount = overdueRes.count ?? 0;
 
   // Compute "alunas em risco": active student whose most recent completed
   // workout is older than 7 days OR who never trained at all.
@@ -194,7 +201,11 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section
+        className={`grid gap-3 sm:grid-cols-2 ${
+          overdueCount > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"
+        }`}
+      >
         <KpiCard
           icon={<UsersIcon className="size-5" />}
           label="Alunas ativas"
@@ -219,6 +230,14 @@ export default async function DashboardPage() {
           value={(atRiskCount > 0 ? atRiskCount : postsCount).toString()}
           accent={atRiskCount > 0 ? "primary" : "muted"}
         />
+        {overdueCount > 0 ? (
+          <KpiCard
+            icon={<ActivityIcon className="size-5" />}
+            label="Inadimplentes"
+            value={overdueCount.toString()}
+            accent="primary"
+          />
+        ) : null}
       </section>
 
       {atRiskCount > 0 ? (

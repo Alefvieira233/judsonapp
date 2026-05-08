@@ -104,6 +104,48 @@ export type Database = {
           },
         ]
       }
+      badges_earned: {
+        Row: {
+          badge_key: string
+          earned_at: string
+          id: string
+          metadata: Json
+          tenant_id: string
+          user_id: string
+        }
+        Insert: {
+          badge_key: string
+          earned_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id: string
+          user_id: string
+        }
+        Update: {
+          badge_key?: string
+          earned_at?: string
+          id?: string
+          metadata?: Json
+          tenant_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "badges_earned_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "badges_earned_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       anamneses: {
         Row: {
           activity_level: string | null
@@ -500,6 +542,104 @@ export type Database = {
           },
         ]
       }
+      payment_events: {
+        Row: {
+          amount_cents: number | null
+          created_at: string
+          event_type: string
+          id: string
+          provider: string
+          provider_event_id: string
+          raw: Json
+          status: string | null
+          subscription_id: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          amount_cents?: number | null
+          created_at?: string
+          event_type: string
+          id?: string
+          provider?: string
+          provider_event_id: string
+          raw: Json
+          status?: string | null
+          subscription_id?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          amount_cents?: number | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          provider?: string
+          provider_event_id?: string
+          raw?: Json
+          status?: string | null
+          subscription_id?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_events_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_events_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string
+          p256dh: string
+          tenant_id: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string
+          p256dh: string
+          tenant_id?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string
+          p256dh?: string
+          tenant_id?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           active: boolean | null
@@ -559,6 +699,7 @@ export type Database = {
       profiles: {
         Row: {
           active: boolean | null
+          asaas_customer_id: string | null
           avatar_url: string | null
           birthdate: string | null
           created_at: string | null
@@ -577,6 +718,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean | null
+          asaas_customer_id?: string | null
           avatar_url?: string | null
           birthdate?: string | null
           created_at?: string | null
@@ -595,6 +737,7 @@ export type Database = {
         }
         Update: {
           active?: boolean | null
+          asaas_customer_id?: string | null
           avatar_url?: string | null
           birthdate?: string | null
           created_at?: string | null
@@ -679,6 +822,79 @@ export type Database = {
           },
           {
             foreignKeyName: "referrals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          billing_cycle: string
+          canceled_at: string | null
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan_id: string | null
+          provider: string
+          provider_subscription_id: string | null
+          started_at: string | null
+          status: string
+          student_id: string
+          tenant_id: string
+          updated_at: string
+          value_cents: number
+        }
+        Insert: {
+          billing_cycle?: string
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_id?: string | null
+          provider?: string
+          provider_subscription_id?: string | null
+          started_at?: string | null
+          status?: string
+          student_id: string
+          tenant_id: string
+          updated_at?: string
+          value_cents: number
+        }
+        Update: {
+          billing_cycle?: string
+          canceled_at?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_id?: string | null
+          provider?: string
+          provider_subscription_id?: string | null
+          started_at?: string | null
+          status?: string
+          student_id?: string
+          tenant_id?: string
+          updated_at?: string
+          value_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -799,6 +1015,7 @@ export type Database = {
           exercise_id: string | null
           id: string
           load_suggestion: string | null
+          mode: string
           notes: string | null
           position: number
           reps: string
@@ -811,6 +1028,7 @@ export type Database = {
           exercise_id?: string | null
           id?: string
           load_suggestion?: string | null
+          mode?: string
           notes?: string | null
           position: number
           reps: string
@@ -823,6 +1041,7 @@ export type Database = {
           exercise_id?: string | null
           id?: string
           load_suggestion?: string | null
+          mode?: string
           notes?: string | null
           position?: number
           reps?: string
@@ -1119,3 +1338,7 @@ export type Consent = Tables<"consents">
 export type Anamnese = Tables<"anamneses">
 export type Assessment = Tables<"assessments">
 export type ProgressPhoto = Tables<"progress_photos">
+export type BadgeEarned = Tables<"badges_earned">
+export type Subscription = Tables<"subscriptions">
+export type PaymentEvent = Tables<"payment_events">
+export type PushSubscription = Tables<"push_subscriptions">

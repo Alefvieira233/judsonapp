@@ -15,6 +15,13 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -108,6 +115,7 @@ export function WorkoutRunner({
   const [completing, completeTransition] = useTransition();
   const [completed, setCompleted] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [abortOpen, setAbortOpen] = useState(false);
   const [sets, setSets] = useState<Record<string, SetState>>(() => {
     const init: Record<string, SetState> = {};
     for (const item of items) {
@@ -171,8 +179,8 @@ export function WorkoutRunner({
     });
   };
 
-  const handleAbort = () => {
-    if (!confirm("Cancelar treino? Os registros já feitos ficam salvos no histórico.")) return;
+  const confirmAbort = () => {
+    setAbortOpen(false);
     setLogId(null);
     startedAtRef.current = null;
     setElapsed(0);
@@ -353,13 +361,43 @@ export function WorkoutRunner({
           </Button>
           <button
             type="button"
-            onClick={handleAbort}
+            onClick={() => setAbortOpen(true)}
             className="text-center text-xs text-muted-foreground underline-offset-4 hover:underline"
           >
             Cancelar treino
           </button>
         </div>
       ) : null}
+
+      <Dialog open={abortOpen} onOpenChange={setAbortOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancelar treino?</DialogTitle>
+            <DialogDescription>
+              Os registros que tu já marcou ficam salvos no histórico. Volta
+              quando quiser.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+            <Button
+              variant="ghost"
+              size="lg"
+              className="w-full sm:w-auto"
+              onClick={() => setAbortOpen(false)}
+            >
+              Continuar treinando
+            </Button>
+            <Button
+              variant="destructive"
+              size="lg"
+              className="w-full sm:w-auto"
+              onClick={confirmAbort}
+            >
+              Sim, cancelar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {rest ? (
         <RestOverlay

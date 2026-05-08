@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { getCurrentStudent } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 
 const updateSchema = z.object({
   full_name: z
@@ -77,4 +77,65 @@ export async function logoutAction(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+const ALLOWED_AVATAR_MIME = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_AVATAR_BYTES = 3 * 1024 * 1024;
+
+export type UploadAvatarState =
+  | { ok: true; url: string }
+  | { ok: false; error: string }
+  | undefined;
+
+export async function uploadAvatarAction(
+  _prev: UploadAvatarState,
+  formData: FormData,
+): Promise<UploadAvatarState> {
+  const session = await getCurrentStudent();
+  if (!session) return { ok: false, error: "Sessão expirada." };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { ok: false, error: "Escolhe uma imagem." };
+  }
+  if (file.size > MAX_AVATAR_BYTES) {
+    return { ok: false, error: "Imagem grande demais (máx 3 MB)." };
+  }
+  if (!ALLOWED_AVATAR_MIME.has(file.type)) {
+    return { ok: false, error: "Formato não suportado. Use JPG, PNG ou WebP." };
+  }
+
+  const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+  // Cache-bust query so the browser refreshes when the same path is overwritten.
+  const path = `${session.profile.id}/avatar.${ext}`;
+
+  const admin = createAdminClient();
+  const { error: uploadErr } = await admin.storage
+    .from("avatars")
+    .upload(path, file, {
+      contentType: file.type,
+      upsert: true,
+      cacheControl: "no-cache",
+    });
+  if (uploadErr) {
+    console.error("[perfil.uploadAvatar] storage:", uploadErr);
+    return { ok: false, error: "Não consegui salvar a foto. Tenta de novo." };
+  }
+
+  const { data: pub } = admin.storage.from("avatars").getPublicUrl(path);
+  const versioned = `${pub.publicUrl}?v=${Date.now()}`;
+
+  const { error: updErr } = await admin
+    .from("profiles")
+    .update({ avatar_url: versioned })
+    .eq("id", session.profile.id);
+  if (updErr) {
+    console.error("[perfil.uploadAvatar] profile:", updErr);
+    return { ok: false, error: "Foto enviada, mas não consegui atualizar o perfil." };
+  }
+
+  revalidatePath("/perfil");
+  revalidatePath("/perfil/editar");
+  revalidatePath("/home");
+  return { ok: true, url: versioned };
 }

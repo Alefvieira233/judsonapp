@@ -3,6 +3,7 @@ import { ArrowLeftIcon } from "lucide-react";
 
 import { getCurrentStudent } from "@/lib/auth";
 
+import { AvatarUploader } from "./avatar-uploader";
 import { EditProfileForm } from "./edit-form";
 
 export const metadata = { title: "Editar perfil" };
@@ -10,6 +11,7 @@ export const metadata = { title: "Editar perfil" };
 export default async function EditProfilePage() {
   const session = await getCurrentStudent();
   if (!session) return null;
+  const initial = (Array.from(session.profile.full_name)[0] ?? "?").toUpperCase();
 
   return (
     <section className="flex flex-1 flex-col gap-6 px-6 pb-8 pt-6">
@@ -26,6 +28,11 @@ export default async function EditProfilePage() {
         </span>
         <h1 className="font-display text-4xl leading-[0.9]">Seu perfil</h1>
       </header>
+
+      <AvatarUploader
+        initialAvatarUrl={session.profile.avatar_url}
+        initial={initial}
+      />
 
       <EditProfileForm profile={session.profile} />
     </section>

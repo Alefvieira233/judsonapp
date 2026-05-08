@@ -1,12 +1,15 @@
+import Image from "next/image";
 import Link from "next/link";
 import {
   ChevronRightIcon,
   ClockIcon,
+  DownloadIcon,
   FlameIcon,
   GiftIcon,
   ListChecksIcon,
   MessageCircleIcon,
   SparklesIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 import { CopyButton } from "@/components/copy-button";
@@ -140,8 +143,18 @@ export default async function StudentProfilePage() {
   return (
     <section className="flex flex-1 flex-col gap-8 px-5 pb-8 pt-8">
       <header className="flex items-center gap-4">
-        <span className="grid size-16 shrink-0 place-items-center rounded-2xl bg-[var(--brand-primary)] font-display text-3xl text-white">
-          {initial}
+        <span className="relative grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-[var(--brand-primary)] font-display text-3xl text-white">
+          {profile.avatar_url ? (
+            <Image
+              src={profile.avatar_url}
+              alt={profile.full_name}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            initial
+          )}
         </span>
         <div className="flex min-w-0 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
@@ -344,6 +357,32 @@ export default async function StudentProfilePage() {
         </a>
 
         <LogoutButton />
+      </section>
+
+      <section className="flex flex-col gap-2 pt-4">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+          Privacidade · LGPD
+        </span>
+        <a
+          href="/perfil/dados"
+          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/20 p-4 text-sm transition-colors hover:bg-card/40"
+        >
+          <span className="flex items-center gap-3">
+            <DownloadIcon className="size-4 text-muted-foreground" aria-hidden />
+            <span className="text-foreground">Exportar meus dados</span>
+          </span>
+          <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
+        </a>
+        <Link
+          href="/perfil/excluir-conta"
+          className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/20 p-4 text-sm transition-colors hover:bg-card/40"
+        >
+          <span className="flex items-center gap-3">
+            <Trash2Icon className="size-4 text-muted-foreground" aria-hidden />
+            <span className="text-foreground">Excluir minha conta</span>
+          </span>
+          <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
+        </Link>
       </section>
     </section>
   );

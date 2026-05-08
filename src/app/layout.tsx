@@ -3,6 +3,7 @@ import { Bebas_Neue, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
+import { CookieBanner } from "@/components/cookie-banner";
 import { PwaRegister } from "@/components/pwa-register";
 import { Toaster } from "@/components/ui/sonner";
 
@@ -96,6 +97,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        <CookieBanner />
         <PwaRegister />
         <Toaster position="top-center" richColors closeButton />
         {/* Vercel telemetry — opt-in via the Vercel project. No cookies, no PII. */}

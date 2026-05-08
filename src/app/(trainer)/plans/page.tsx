@@ -3,6 +3,8 @@ import { CheckIcon, PlusIcon, SparklesIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -40,28 +42,39 @@ export default async function PlansPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 md:gap-8 md:px-6 md:py-10">
-      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Painel
-          </span>
-          <h1 className="font-display text-4xl leading-none md:text-5xl">
-            Planos
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Defina o que você cobra. Aluna vê em <span className="text-foreground">/planos</span> e pede o upgrade pelo WhatsApp.
-          </p>
-        </div>
-        <Link
-          href="/plans/new"
-          className={buttonVariants({ size: "lg", className: "w-full md:w-auto gap-2" })}
-        >
-          <PlusIcon className="size-4" /> Novo plano
-        </Link>
-      </header>
+      <PageHeader
+        eyebrow="Painel"
+        title="Planos"
+        description={
+          <>
+            Defina o que você cobra. Aluna vê em{" "}
+            <span className="text-foreground">/planos</span> e pede o upgrade
+            pelo WhatsApp.
+          </>
+        }
+        trailing={
+          <Link
+            href="/plans/new"
+            className={buttonVariants({ size: "lg", className: "w-full md:w-auto gap-2" })}
+          >
+            <PlusIcon className="size-4" /> Novo plano
+          </Link>
+        }
+      />
 
       {plans.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          title="Crie seu primeiro plano"
+          description="Aluna vai ver isso em /planos e mandar o pedido pelo WhatsApp pra cobrar ou negociar."
+          action={
+            <Link
+              href="/plans/new"
+              className={buttonVariants({ size: "lg", className: "gap-2" })}
+            >
+              <PlusIcon className="size-4" /> Novo plano
+            </Link>
+          }
+        />
       ) : (
         <ul className="grid gap-3 md:grid-cols-2">
           {plans.map((plan) => (
@@ -137,20 +150,3 @@ export default async function PlansPage() {
   );
 }
 
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card/30 px-6 py-12 text-center">
-      <h2 className="font-display text-2xl">Crie seu primeiro plano</h2>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        Aluna vai ver isso em /planos e mandar o pedido pelo WhatsApp pra cobrar
-        ou negociar.
-      </p>
-      <Link
-        href="/plans/new"
-        className={buttonVariants({ size: "lg", className: "mt-2 gap-2" })}
-      >
-        <PlusIcon className="size-4" /> Novo plano
-      </Link>
-    </div>
-  );
-}

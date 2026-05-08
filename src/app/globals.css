@@ -107,6 +107,12 @@
 
   --radius: 0.5rem;
 
+  /* Eyebrow tracking tokens — keep semantic, not literal pixel values.
+     Default eyebrow uses 0.3em across pages; the 0.4em variant is reserved
+     for hero/landing eyebrows that need extra breathing room. */
+  --tracking-eyebrow: 0.3em;
+  --tracking-eyebrow-strong: 0.4em;
+
   --sidebar: var(--brand-surface);
   --sidebar-foreground: var(--brand-text);
   --sidebar-primary: var(--brand-primary);

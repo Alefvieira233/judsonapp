@@ -57,6 +57,10 @@ function buildCsp(nonce: string): string {
       "https://*.ingest.us.sentry.io",
       // Asaas: status calls e fetch do checkout link.
       "https://*.asaas.com",
+      // Stripe: js.stripe.com fetches /v1/* during checkout/portal sessions.
+      "https://*.stripe.com",
+      "https://js.stripe.com",
+      "https://api.stripe.com",
       // Google Fonts fetch from next/og handler (story image generation).
       "https://fonts.gstatic.com",
       "https://fonts.googleapis.com",
@@ -69,6 +73,10 @@ function buildCsp(nonce: string): string {
       "https://player.vimeo.com",
       // Asaas eventualmente embeda o checkout em iframe.
       "https://*.asaas.com",
+      // Stripe Checkout / Customer Portal redirects also embed iframes for
+      // 3D-Secure challenges.
+      "https://*.stripe.com",
+      "https://js.stripe.com",
     ],
     "frame-ancestors": ["'none'"],
     "form-action": ["'self'"],

@@ -4,8 +4,10 @@ import { useMemo, useState } from "react";
 import { PlayIcon, PlusIcon, SearchIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { cn } from "@/lib/utils";
 
 import type { ExerciseRow } from "./page";
@@ -48,28 +50,20 @@ export function ExercisesView({
 
   return (
     <>
-      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Painel
-          </span>
-          <h1 className="font-display text-4xl leading-none md:text-5xl">
-            Exercícios
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {initialExercises.length} no total — {muscleGroups.length} grupos
-            musculares.
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
-        >
-          <PlusIcon className="size-4" aria-hidden /> Novo exercício
-        </button>
-      </header>
+      <PageHeader
+        eyebrow="Painel"
+        title="Exercícios"
+        description={`${initialExercises.length} no total — ${muscleGroups.length} grupos musculares.`}
+        trailing={
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
+          >
+            <PlusIcon className="size-4" aria-hidden /> Novo exercício
+          </button>
+        }
+      />
 
       <div className="flex flex-col gap-3">
         <div className="relative">
@@ -105,9 +99,10 @@ export function ExercisesView({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
-          Nenhum exercício encontrado.
-        </p>
+        <EmptyState
+          title="Nenhum exercício encontrado"
+          description="Tente ajustar os filtros ou cadastrar um novo exercício."
+        />
       ) : (
         <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((ex) => (

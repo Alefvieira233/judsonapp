@@ -1,3 +1,5 @@
+import { getTranslations } from "next-intl/server";
+
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth";
 
@@ -5,7 +7,10 @@ import { CreateStudentButton } from "./create-student-button";
 import { InviteButton } from "./invite-button";
 import { StudentsList, type StudentItem } from "./students-list";
 
-export const metadata = { title: "Alunas" };
+export async function generateMetadata() {
+  const t = await getTranslations("students");
+  return { title: t("metadata_title") };
+}
 
 type ThreadRow = { id: string; student_id: string };
 type UnreadRow = { thread_id: string };
@@ -13,6 +18,8 @@ type UnreadRow = { thread_id: string };
 export default async function StudentsPage() {
   const session = await getCurrentProfile();
   if (!session) return null;
+
+  const t = await getTranslations("students");
 
   const supabase = await createClient();
   const [studentsRes, threadsRes] = await Promise.all([
@@ -64,15 +71,17 @@ export default async function StudentsPage() {
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Painel
+            {t("eyebrow")}
           </span>
           <h1 className="font-display text-4xl leading-none md:text-5xl">
-            Alunas
+            {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground">
             {list.length === 0
-              ? "Nenhuma aluna ainda. Cadastre direto ou gera um convite."
-              : `${list.length} aluna${list.length === 1 ? "" : "s"} cadastrada${list.length === 1 ? "" : "s"}.`}
+              ? t("summary_empty")
+              : list.length === 1
+                ? t("summary_one", { count: list.length })
+                : t("summary_other", { count: list.length })}
           </p>
         </div>
         <div className="flex flex-col gap-2 md:flex-row md:gap-3">
@@ -81,22 +90,28 @@ export default async function StudentsPage() {
         </div>
       </header>
 
-      {list.length === 0 ? <EmptyState /> : <StudentsList students={list} />}
+      {list.length === 0 ? <StudentsEmptyState /> : <StudentsList students={list} />}
     </div>
   );
 }
 
-function EmptyState() {
+async function StudentsEmptyState() {
+  const t = await getTranslations("students");
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/30 px-6 py-12 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-card font-display text-xl text-foreground">
         +
       </span>
-      <h2 className="font-display text-2xl">Tua primeira aluna</h2>
+      <h2 className="font-display text-2xl">{t("empty_title")}</h2>
       <p className="max-w-sm text-sm text-muted-foreground">
-        Toca em <span className="text-foreground">Cadastrar</span> pra criar
-        ela direto, ou em <span className="text-foreground">Convidar</span> pra
-        mandar um link de auto-cadastro pelo WhatsApp.
+        {t.rich("empty_body", {
+          register: (chunks) => (
+            <span className="text-foreground">{chunks}</span>
+          ),
+          invite: (chunks) => (
+            <span className="text-foreground">{chunks}</span>
+          ),
+        })}
       </p>
     </div>
   );

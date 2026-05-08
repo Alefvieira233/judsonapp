@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
+import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,14 +12,16 @@ import { loginAction, type LoginState } from "./actions";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useTranslations("auth");
   return (
     <Button type="submit" size="lg" className="w-full" disabled={pending}>
-      {pending ? "Entrando…" : "Entrar"}
+      {pending ? t("submitting") : t("submit")}
     </Button>
   );
 }
 
 export function LoginForm({ next }: { next?: string }) {
+  const t = useTranslations("auth");
   const [state, formAction] = useActionState<LoginState, FormData>(
     loginAction,
     undefined,
@@ -29,26 +32,26 @@ export function LoginForm({ next }: { next?: string }) {
       {next ? <input type="hidden" name="next" value={next} /> : null}
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="email">Email</Label>
+        <Label htmlFor="email">{t("email")}</Label>
         <Input
           id="email"
           name="email"
           type="email"
           autoComplete="email"
           required
-          placeholder="voce@dominio.com"
+          placeholder={t("email_placeholder")}
         />
       </div>
 
       <div className="flex flex-col gap-2">
-        <Label htmlFor="password">Senha</Label>
+        <Label htmlFor="password">{t("password")}</Label>
         <Input
           id="password"
           name="password"
           type="password"
           autoComplete="current-password"
           required
-          placeholder="••••••••"
+          placeholder={t("password_placeholder")}
         />
       </div>
 

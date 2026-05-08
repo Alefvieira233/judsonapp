@@ -9,6 +9,7 @@ import {
   TrendingUpIcon,
   ZapIcon,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { buttonVariants } from "@/components/ui/button";
 import { getCurrentStudent } from "@/lib/auth";
@@ -24,7 +25,10 @@ import { Heatmap7Days } from "./heatmap-7-days";
 import { HeroStreak } from "./hero-streak";
 import { ShareMonthButton } from "./share-month-button";
 
-export const metadata = { title: "Hoje" };
+export async function generateMetadata() {
+  const t = await getTranslations("home");
+  return { title: t("metadata_title") };
+}
 
 const WEEKDAY_LABELS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
 const MS_PER_DAY = 86_400_000;
@@ -47,11 +51,11 @@ function firstName(full: string): string {
   return full.split(" ")[0] ?? full;
 }
 
-function greeting(now: Date): string {
+function greetingKey(now: Date): "greeting_morning" | "greeting_afternoon" | "greeting_evening" {
   const hour = now.getHours();
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
+  if (hour < 12) return "greeting_morning";
+  if (hour < 18) return "greeting_afternoon";
+  return "greeting_evening";
 }
 
 function pickTodayWorkout(
@@ -73,6 +77,8 @@ export default async function StudentHomePage() {
   const session = await getCurrentStudent();
   if (!session) return null;
   const { profile, tenant } = session;
+
+  const t = await getTranslations("home");
 
   const supabase = await createClient();
   const now = new Date();
@@ -125,9 +131,9 @@ export default async function StudentHomePage() {
   const heroCtaHref = today ? `/treinos/${today.id}` : "/treinos";
   const heroCtaLabel = today
     ? todayIsScheduled
-      ? "Iniciar treino de hoje"
-      : "Iniciar próximo treino"
-    : "Ver todos os treinos";
+      ? t("cta_start_today")
+      : t("cta_start_next")
+    : t("cta_see_all");
 
   return (
     <section className="flex flex-1 flex-col gap-7 px-5 pb-8 pt-6">
@@ -138,7 +144,7 @@ export default async function StudentHomePage() {
         />
         <div className="relative flex flex-col gap-5">
           <HeroStreak
-            greeting={greeting(now)}
+            greeting={t(greetingKey(now))}
             firstName={firstName(profile.full_name)}
             streak={streak}
           />
@@ -146,18 +152,18 @@ export default async function StudentHomePage() {
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Stat
               icon={<FlameIcon className="size-3.5" />}
-              label="streak"
+              label={t("stat_streak")}
               value={`${streak}d`}
             />
             <Stat
               icon={<TrendingUpIcon className="size-3.5" />}
-              label="treinos"
+              label={t("stat_workouts")}
               value={totalCompleted.toString()}
             />
             {plan ? (
               <Stat
                 icon={<SparklesIcon className="size-3.5" />}
-                label="plano"
+                label={t("stat_plan")}
                 value={plan.name.split(" ")[0] ?? "—"}
                 highlight
               />
@@ -177,12 +183,12 @@ export default async function StudentHomePage() {
       </header>
 
       <section
-        aria-label="Últimos 7 dias"
+        aria-label={t("last7_label")}
         className="flex flex-col gap-3 rounded-2xl border border-border bg-card/30 p-4"
       >
         <div className="flex items-center justify-between gap-3">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Últimos 7 dias
+            {t("last7_label")}
           </span>
           <span className="text-[11px] tabular-nums text-muted-foreground">
             {last7.filter(Boolean).length}/7
@@ -192,15 +198,17 @@ export default async function StudentHomePage() {
       </section>
 
       <section
-        aria-label="Sua força"
+        aria-label={t("strength_label")}
         className="flex flex-col gap-3 rounded-2xl border border-border bg-card/30 p-4"
       >
         <header className="flex items-center justify-between gap-3">
           <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
             <ZapIcon className="size-3.5 text-[var(--brand-primary)]" />
-            Sua força
+            {t("strength_label")}
           </span>
-          <span className="text-[10px] text-muted-foreground">últimos 30 dias</span>
+          <span className="text-[10px] text-muted-foreground">
+            {t("strength_window")}
+          </span>
         </header>
         <ul className="flex flex-col gap-2">
           {MUSCLE_ORDER.map((m) => {
@@ -216,7 +224,7 @@ export default async function StudentHomePage() {
                   aria-valuenow={score}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label={`Força ${MUSCLE_LABELS[m]}`}
+                  aria-label={`${t("strength_label")} ${MUSCLE_LABELS[m]}`}
                 >
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-[var(--brand-primary)]/60 to-[var(--brand-primary)] transition-[width] duration-500"
@@ -239,10 +247,11 @@ export default async function StudentHomePage() {
         >
           <div className="flex items-center justify-between gap-3">
             <span className="text-[11px] uppercase tracking-[0.3em] text-[var(--brand-primary)]">
-              {todayIsScheduled ? "Treino de hoje" : "Próximo treino"}
+              {todayIsScheduled ? t("today_pill") : t("next_pill")}
             </span>
             <span className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-              {todayItemCount} {todayItemCount === 1 ? "exercício" : "exercícios"}
+              {todayItemCount}{" "}
+              {todayItemCount === 1 ? t("exercise_one") : t("exercise_other")}
             </span>
           </div>
           <p className="font-display text-3xl leading-tight">{today.title}</p>
@@ -250,7 +259,7 @@ export default async function StudentHomePage() {
             <p className="text-sm text-muted-foreground">{today.description}</p>
           ) : null}
           <span className="mt-2 inline-flex items-center gap-2 text-sm font-medium text-foreground transition-colors group-hover:text-[var(--brand-primary)]">
-            <DumbbellIcon className="size-4" /> Iniciar treino →
+            <DumbbellIcon className="size-4" /> {t("start_workout")} →
           </span>
         </Link>
       ) : (
@@ -259,7 +268,7 @@ export default async function StudentHomePage() {
 
       {upcoming.length > 0 ? (
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-xl">Outros treinos</h2>
+          <h2 className="font-display text-xl">{t("other_workouts")}</h2>
           <ul className="flex flex-col gap-2">
             {upcoming.map((w) => (
               <li key={w.id}>
@@ -272,9 +281,9 @@ export default async function StudentHomePage() {
                       {w.title}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {w.items?.[0]?.count ?? 0} exercícios
+                      {w.items?.[0]?.count ?? 0} {t("exercise_other")}
                       {w.scheduled_days && w.scheduled_days.length > 0
-                        ? ` · ${formatDays(w.scheduled_days)}`
+                        ? ` · ${formatDays(w.scheduled_days, t("all_days"))}`
                         : ""}
                     </span>
                   </div>
@@ -301,14 +310,14 @@ export default async function StudentHomePage() {
           <div className="flex items-center gap-2">
             <SparklesIcon className="size-4 text-[var(--brand-primary)]" />
             <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-              {plan ? "Seu plano" : "Conheça os planos"}
+              {plan ? t("plan_eyebrow_yours") : t("plan_eyebrow_explore")}
             </span>
           </div>
           <span className="font-display text-xl leading-tight">
-            {plan?.name ?? "Evoluir o acompanhamento"}
+            {plan?.name ?? t("plan_default_cta")}
           </span>
           <span className="text-xs text-muted-foreground">
-            {plan?.price_label ?? "A partir de R$ 99/mês"}
+            {plan?.price_label ?? t("plan_default_price")}
           </span>
         </Link>
 
@@ -319,14 +328,14 @@ export default async function StudentHomePage() {
           <div className="flex items-center gap-2">
             <GiftIcon className="size-4 text-[var(--brand-primary)]" />
             <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-              Indique uma amiga
+              {t("referral_eyebrow")}
             </span>
           </div>
           <span className="font-display text-xl leading-tight">
-            Ganhe bônus
+            {t("referral_title")}
           </span>
           <span className="text-xs text-muted-foreground">
-            Cada amiga que entra na equipe vira benefício pra você.
+            {t("referral_body")}
           </span>
         </Link>
       </section>
@@ -336,9 +345,9 @@ export default async function StudentHomePage() {
         className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/30 p-4 text-sm transition-colors hover:bg-card/60"
       >
         <div className="flex flex-col gap-0.5">
-          <span className="font-display text-lg">Comunidade</span>
+          <span className="font-display text-lg">{t("community_title")}</span>
           <span className="text-xs text-muted-foreground">
-            Recados e bastidores da equipe Judson.
+            {t("community_body")}
           </span>
         </div>
         <MessageCircleIcon
@@ -384,16 +393,18 @@ function Stat({
   );
 }
 
-function EmptyToday({ tenantFirstName }: { tenantFirstName: string }) {
+async function EmptyToday({ tenantFirstName }: { tenantFirstName: string }) {
+  const t = await getTranslations("home");
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-border bg-card/20 p-5 text-center">
       <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-        Hoje
+        {t("empty_today_eyebrow")}
       </span>
-      <p className="font-display text-3xl leading-tight">Sem treino agendado</p>
+      <p className="font-display text-3xl leading-tight">
+        {t("empty_today_title")}
+      </p>
       <p className="text-sm text-muted-foreground">
-        {tenantFirstName} ainda não montou treino pra hoje. Aproveita pra dar
-        uma olhada no que tá rolando na comunidade.
+        {t("empty_today_body", { trainer: tenantFirstName })}
       </p>
       <Link
         href="/feed"
@@ -403,14 +414,14 @@ function EmptyToday({ tenantFirstName }: { tenantFirstName: string }) {
           className: "mt-2 w-full",
         })}
       >
-        Abrir comunidade
+        {t("empty_today_cta")}
       </Link>
     </div>
   );
 }
 
-function formatDays(days: number[]): string {
-  if (days.length === 7) return "todos os dias";
+function formatDays(days: number[], allDaysLabel: string): string {
+  if (days.length === 7) return allDaysLabel;
   return days
     .map((d) => WEEKDAY_LABELS[d]?.slice(0, 3))
     .filter(Boolean)

@@ -1,3 +1,5 @@
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentStudent } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -131,20 +133,17 @@ export default async function StudentFeedPage() {
 
   return (
     <section className="flex flex-1 flex-col gap-6 px-6 pb-8 pt-10">
-      <header className="flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-          Comunidade
-        </span>
-        <h1 className="font-display text-4xl leading-[0.9]">
-          {tenant.name.split(" ")[0]} & equipe
-        </h1>
-        {tenant.tagline ? (
-          <p className="text-sm text-muted-foreground">{tenant.tagline}</p>
-        ) : null}
-      </header>
+      <PageHeader
+        eyebrow="Comunidade"
+        title={`${tenant.name.split(" ")[0]} & equipe`}
+        description={tenant.tagline ?? undefined}
+      />
 
       {cards.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          title="Nada por aqui ainda"
+          description="O personal vai postar recados, motivação e bastidores quando começar a trabalhar com a equipe."
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {cards.map((p) => (
@@ -155,17 +154,5 @@ export default async function StudentFeedPage() {
         </ul>
       )}
     </section>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-border bg-card/20 px-6 py-12 text-center">
-      <h2 className="font-display text-2xl">Nada por aqui ainda</h2>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        O personal vai postar recados, motivação e bastidores quando começar a
-        trabalhar com a equipe.
-      </p>
-    </div>
   );
 }

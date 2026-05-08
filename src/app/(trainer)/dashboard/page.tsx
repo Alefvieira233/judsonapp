@@ -8,12 +8,20 @@ import {
   SparklesIcon,
   UsersIcon,
 } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
+import { Surface } from "@/components/ui/surface";
 import { getCurrentProfile } from "@/lib/auth";
+import { startOfDay, timeAgo } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 
-export const metadata = { title: "Dashboard" };
+export async function generateMetadata() {
+  const t = await getTranslations("dashboard");
+  return { title: t("metadata_title") };
+}
 
 type RecentLog = {
   id: string;
@@ -23,37 +31,19 @@ type RecentLog = {
   student: { full_name: string } | null;
 };
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function greeting(now: Date): string {
+function greetingKey(now: Date): "greeting_morning" | "greeting_afternoon" | "greeting_evening" {
   const hour = now.getHours();
-  if (hour < 12) return "Bom dia";
-  if (hour < 18) return "Boa tarde";
-  return "Boa noite";
-}
-
-function timeAgo(iso: string): string {
-  const d = new Date(iso);
-  const ms = Date.now() - d.getTime();
-  const m = Math.floor(ms / 60_000);
-  if (m < 1) return "agora";
-  if (m < 60) return `${m}min atrás`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h atrás`;
-  const days = Math.floor(h / 24);
-  if (days === 1) return "ontem";
-  if (days < 7) return `há ${days} dias`;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+  if (hour < 12) return "greeting_morning";
+  if (hour < 18) return "greeting_afternoon";
+  return "greeting_evening";
 }
 
 export default async function DashboardPage() {
   const session = await getCurrentProfile();
   if (!session) return null;
   const { profile, tenant } = session;
+
+  const t = await getTranslations("dashboard");
 
   const supabase = await createClient();
   const now = new Date();
@@ -144,9 +134,9 @@ export default async function DashboardPage() {
   const lastByStudent = new Map<string, Date>();
   for (const log of studentLogsRes.data ?? []) {
     if (!log.student_id || !log.completed_at) continue;
-    const t = new Date(log.completed_at);
+    const completedAt = new Date(log.completed_at);
     const prev = lastByStudent.get(log.student_id);
-    if (!prev || t > prev) lastByStudent.set(log.student_id, t);
+    if (!prev || completedAt > prev) lastByStudent.set(log.student_id, completedAt);
   }
   const atRisk = activeStudents
     .map((s) => ({
@@ -172,20 +162,20 @@ export default async function DashboardPage() {
         />
         <div className="relative flex flex-col gap-3">
           <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-            {greeting(now)}, painel do personal
+            {t("panel_eyebrow", { greeting: t(greetingKey(now)) })}
           </span>
           <h1 className="font-display text-5xl leading-[0.9] md:text-6xl">
             {profile.full_name.split(" ")[0]}
           </h1>
           <p className="max-w-xl text-sm text-muted-foreground md:text-base">
-            {tenant.tagline ?? "Acompanha tua equipe, monta os treinos e mantém o ritmo da galera."}
+            {tenant.tagline ?? t("tagline_default")}
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
               href="/students"
               className={buttonVariants({ size: "lg", className: "gap-2" })}
             >
-              <UsersIcon className="size-4" /> Ver alunas
+              <UsersIcon className="size-4" /> {t("see_students")}
             </Link>
             <Link
               href="/workouts/new"
@@ -195,7 +185,7 @@ export default async function DashboardPage() {
                 className: "gap-2",
               })}
             >
-              <PlusIcon className="size-4" /> Novo treino
+              <PlusIcon className="size-4" /> {t("new_workout")}
             </Link>
           </div>
         </div>
@@ -206,34 +196,32 @@ export default async function DashboardPage() {
           overdueCount > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4"
         }`}
       >
-        <KpiCard
-          icon={<UsersIcon className="size-5" />}
-          label="Alunas ativas"
+        <StatCard
+          icon={<UsersIcon className="size-3.5" />}
+          label={t("kpi_active")}
           value={studentsCount.toString()}
           accent="primary"
         />
-        <KpiCard
-          icon={<SparklesIcon className="size-5" />}
-          label="Em planos pagos"
+        <StatCard
+          icon={<SparklesIcon className="size-3.5" />}
+          label={t("kpi_paid")}
           value={planSubscribers.toString()}
-          accent="muted"
         />
-        <KpiCard
-          icon={<DumbbellIcon className="size-5" />}
-          label="Treinos esta semana"
+        <StatCard
+          icon={<DumbbellIcon className="size-3.5" />}
+          label={t("kpi_week")}
           value={weekLogs.toString()}
-          accent="muted"
         />
-        <KpiCard
-          icon={<MessageCircleIcon className="size-5" />}
-          label={atRiskCount > 0 ? "Em risco (>7d)" : "Posts publicados"}
+        <StatCard
+          icon={<MessageCircleIcon className="size-3.5" />}
+          label={atRiskCount > 0 ? t("kpi_at_risk") : t("kpi_posts")}
           value={(atRiskCount > 0 ? atRiskCount : postsCount).toString()}
           accent={atRiskCount > 0 ? "primary" : "muted"}
         />
         {overdueCount > 0 ? (
-          <KpiCard
-            icon={<ActivityIcon className="size-5" />}
-            label="Inadimplentes"
+          <StatCard
+            icon={<ActivityIcon className="size-3.5" />}
+            label={t("kpi_overdue")}
             value={overdueCount.toString()}
             accent="primary"
           />
@@ -245,10 +233,10 @@ export default async function DashboardPage() {
           <header className="flex items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 font-display text-2xl">
               <ActivityIcon className="size-5 text-[var(--brand-primary)]" />
-              Alunas em risco
+              {t("at_risk_title")}
             </h2>
             <span className="text-xs text-muted-foreground">
-              {atRiskCount} sem treinar há mais de 7 dias
+              {t("at_risk_summary", { count: atRiskCount })}
             </span>
           </header>
           <ul className="flex flex-col gap-1.5">
@@ -264,7 +252,9 @@ export default async function DashboardPage() {
                   >
                     <span className="truncate text-sm font-medium">{s.name}</span>
                     <span className="text-xs text-muted-foreground">
-                      {days === null ? "nunca treinou" : `há ${days} dias`}
+                      {days === null
+                        ? t("at_risk_never")
+                        : t("at_risk_days_ago", { count: days })}
                     </span>
                   </Link>
                 </li>
@@ -273,34 +263,31 @@ export default async function DashboardPage() {
           </ul>
           {atRiskCount > 6 ? (
             <p className="text-xs text-muted-foreground">
-              + {atRiskCount - 6} aluna{atRiskCount - 6 === 1 ? "" : "s"} a mais.
+              {atRiskCount - 6 === 1
+                ? t("at_risk_more_one", { count: atRiskCount - 6 })
+                : t("at_risk_more_other", { count: atRiskCount - 6 })}
             </p>
           ) : null}
         </section>
       ) : null}
 
       <section className="grid gap-6 lg:grid-cols-3">
-        <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/40 p-5 lg:col-span-2">
+        <Surface className="flex flex-col gap-3 p-5 lg:col-span-2">
           <header className="flex items-center justify-between gap-3">
             <h2 className="flex items-center gap-2 font-display text-2xl">
               <ActivityIcon className="size-5 text-[var(--brand-primary)]" />
-              Última atividade
+              {t("activity_title")}
             </h2>
             <Link
               href="/students"
               className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
-              Ver todas <ArrowRightIcon className="size-3" />
+              {t("see_all")} <ArrowRightIcon className="size-3" />
             </Link>
           </header>
 
           {recent.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-card/30 px-4 py-10 text-center">
-              <p className="text-sm text-muted-foreground">
-                Sem treinos concluídos ainda. Quando tuas alunas começarem a
-                treinar pelo app, vai aparecer aqui em tempo real.
-              </p>
-            </div>
+            <EmptyState title={t("activity_title")} description={t("activity_empty")} />
           ) : (
             <ul className="flex flex-col divide-y divide-border">
               {recent.map((log) => (
@@ -314,10 +301,10 @@ export default async function DashboardPage() {
                         {log.student?.full_name ?? "—"}
                       </span>
                       <span className="text-muted-foreground">
-                        {" "}concluiu{" "}
+                        {" "}{t("activity_completed")}{" "}
                       </span>
                       <span className="text-foreground">
-                        {log.workout?.title ?? "treino removido"}
+                        {log.workout?.title ?? t("workout_removed")}
                       </span>
                     </span>
                     <span className="text-[11px] text-muted-foreground">
@@ -329,75 +316,37 @@ export default async function DashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </Surface>
 
         <div className="flex flex-col gap-3">
           <QuickLink
             href="/workouts?view=templates"
-            title="Templates"
-            description="Treinos modelo prontos pra clonar entre alunas."
+            title={t("quick_templates_title")}
+            description={t("quick_templates_body")}
           />
           <QuickLink
             href="/plans"
-            title="Planos"
-            description="Define os planos e a consultoria que oferece."
+            title={t("quick_plans_title")}
+            description={t("quick_plans_body")}
           />
           <QuickLink
             href="/community"
-            title="Comunidade"
-            description="Manda recado pro feed da equipe."
+            title={t("quick_community_title")}
+            description={t("quick_community_body")}
           />
           <QuickLink
             href="/exercises"
-            title="Exercícios"
-            description="Biblioteca de exercícios da tua escola."
+            title={t("quick_exercises_title")}
+            description={t("quick_exercises_body")}
           />
           <QuickLink
             href="/settings"
-            title="Sua marca"
-            description="Logo, bio, cores e contato."
+            title={t("quick_brand_title")}
+            description={t("quick_brand_body")}
           />
         </div>
       </section>
     </main>
-  );
-}
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  accent: "primary" | "muted";
-}) {
-  return (
-    <div
-      className={
-        accent === "primary"
-          ? "rounded-2xl border border-[var(--brand-primary)]/30 bg-gradient-to-br from-[var(--brand-primary)]/15 via-card/40 to-card/40 p-5"
-          : "rounded-2xl border border-border bg-card/40 p-5"
-      }
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
-          {label}
-        </span>
-        <span
-          className={
-            accent === "primary"
-              ? "text-[var(--brand-primary)]"
-              : "text-muted-foreground"
-          }
-        >
-          {icon}
-        </span>
-      </div>
-      <p className="mt-3 font-display text-4xl leading-none">{value}</p>
-    </div>
   );
 }
 

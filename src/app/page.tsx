@@ -1,25 +1,35 @@
-import { buttonVariants } from "@/components/ui/button";
+import { getTranslations } from "next-intl/server";
 
-export default function HomePage() {
+import { buttonVariants } from "@/components/ui/button";
+import { isMultiTenantEnabled } from "@/lib/tenant";
+
+export default async function HomePage() {
+  if (isMultiTenantEnabled()) return <SaaSLanding />;
+  return <ClienteZeroLanding />;
+}
+
+async function ClienteZeroLanding() {
+  const t = await getTranslations("landing");
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-10 px-6 py-16 text-center">
       <header className="flex flex-col items-center gap-4">
         <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
-          CREF 002133-G/AP
+          {t("cref")}
         </span>
         <h1 className="font-display text-6xl leading-none text-foreground sm:text-8xl">
           Judson Lobato
         </h1>
         <p className="max-w-md text-base text-muted-foreground">
-          Personal trainer há 16 anos. Atleta e técnico de natação.
+          {t("tagline")}
           <br />
-          <span className="text-foreground">Faz o teu que eu faço o meu.</span>
+          <span className="text-foreground">{t("slogan")}</span>
         </p>
       </header>
 
       <div className="flex flex-col gap-3 sm:flex-row">
         <a href="/login" className={buttonVariants({ size: "lg" })}>
-          Acessar painel
+          {t("cta_panel")}
         </a>
         <a
           href="https://instagram.com/judsonlobato"
@@ -31,8 +41,44 @@ export default function HomePage() {
         </a>
       </div>
 
+      <footer className="text-xs text-muted-foreground">{t("footer")}</footer>
+    </main>
+  );
+}
+
+function SaaSLanding() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-10 px-6 py-16 text-center">
+      <header className="flex flex-col items-center gap-4">
+        <span className="text-xs uppercase tracking-[0.4em] text-muted-foreground">
+          App de personal trainer · white-label
+        </span>
+        <h1 className="font-display text-6xl leading-none text-foreground sm:text-8xl">
+          Teu app, tua marca
+        </h1>
+        <p className="max-w-md text-base text-muted-foreground">
+          Cadastra alunas, monta treinos, anamnese e cobrança. Em 60 segundos,
+          no teu domínio, com tua cor.
+        </p>
+      </header>
+
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <a
+          href="/criar-conta-personal"
+          className={buttonVariants({ size: "xl" })}
+        >
+          Criar minha conta
+        </a>
+        <a
+          href="/login"
+          className={buttonVariants({ size: "xl", variant: "outline" })}
+        >
+          Já tenho conta
+        </a>
+      </div>
+
       <footer className="text-xs text-muted-foreground">
-        Macapá — AP · A partir de R$ 300/mês
+        A partir de R$ 79/mês · sem fidelidade
       </footer>
     </main>
   );

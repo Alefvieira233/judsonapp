@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FilesIcon, PlusIcon } from "lucide-react";
+import { getTranslations } from "next-intl/server";
 
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,7 +9,10 @@ import { getCurrentProfile } from "@/lib/auth";
 
 import { AssignTemplateButton } from "./assign-template";
 
-export const metadata = { title: "Treinos" };
+export async function generateMetadata() {
+  const t = await getTranslations("workouts");
+  return { title: t("metadata_title") };
+}
 
 const DAYS = ["D", "S", "T", "Q", "Q", "S", "S"];
 
@@ -31,6 +35,31 @@ function parseView(raw: string | string[] | undefined): View {
   return "all";
 }
 
+function summarize(
+  count: number,
+  view: View,
+  t: (key: string, params?: Record<string, number>) => string,
+): string {
+  if (count === 0) {
+    if (view === "templates") return t("summary_empty_templates");
+    if (view === "assigned") return t("summary_empty_assigned");
+    return t("summary_empty_all");
+  }
+  if (view === "templates") {
+    return count === 1
+      ? t("summary_template_one_view", { count })
+      : t("summary_template_other_view", { count });
+  }
+  if (view === "assigned") {
+    return count === 1
+      ? t("summary_count_one_view", { count })
+      : t("summary_count_other_view", { count });
+  }
+  return count === 1
+    ? t("summary_count_one_total", { count })
+    : t("summary_count_other_total", { count });
+}
+
 export default async function WorkoutsPage({
   searchParams,
 }: {
@@ -41,6 +70,8 @@ export default async function WorkoutsPage({
 
   const sp = await searchParams;
   const view = parseView(sp.view);
+
+  const t = await getTranslations("workouts");
 
   const supabase = await createClient();
   let query = supabase
@@ -75,19 +106,13 @@ export default async function WorkoutsPage({
       <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
         <div className="flex flex-col gap-1">
           <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Painel
+            {t("eyebrow")}
           </span>
           <h1 className="font-display text-4xl leading-none md:text-5xl">
-            Treinos
+            {t("title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {workouts.length === 0
-              ? view === "templates"
-                ? "Nenhum template ainda. Crie um pra reusar entre alunas."
-                : view === "assigned"
-                  ? "Nenhum treino atribuído ainda."
-                  : "Crie o primeiro treino e atribua a uma aluna."
-              : `${workouts.length} ${view === "templates" ? "template" : "treino"}${workouts.length === 1 ? "" : "s"} ${view === "all" ? "no total" : "nessa visão"}.`}
+            {summarize(workouts.length, view, t)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2 md:flex-nowrap">
@@ -99,13 +124,13 @@ export default async function WorkoutsPage({
               className: "w-full md:w-auto",
             })}
           >
-            <FilesIcon className="size-4" aria-hidden /> Novo template
+            <FilesIcon className="size-4" aria-hidden /> {t("new_template")}
           </Link>
           <Link
             href="/workouts/new"
             className={buttonVariants({ size: "lg", className: "w-full md:w-auto" })}
           >
-            <PlusIcon className="size-4" aria-hidden /> Novo treino
+            <PlusIcon className="size-4" aria-hidden /> {t("new_workout")}
           </Link>
         </div>
       </header>
@@ -132,19 +157,24 @@ export default async function WorkoutsPage({
                       <span className="text-xs text-muted-foreground">
                         {isTemplate ? (
                           <Badge variant="outline" className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-                            Template
+                            {t("is_template")}
                           </Badge>
                         ) : (
-                          <>{w.student?.full_name ?? "Aluna removida"}</>
+                          <>{w.student?.full_name ?? t("student_removed")}</>
                         )}
                         <span className="ml-2">
-                          {w.items?.[0]?.count ?? 0} exercícios
+                          {(() => {
+                            const count = w.items?.[0]?.count ?? 0;
+                            return count === 1
+                              ? t("exercise_one", { count })
+                              : t("exercise_other", { count });
+                          })()}
                         </span>
                       </span>
                     </div>
                     {w.active === false ? (
                       <Badge variant="outline" className="text-muted-foreground">
-                        Inativo
+                        {t("inactive")}
                       </Badge>
                     ) : null}
                   </Link>
@@ -168,11 +198,12 @@ export default async function WorkoutsPage({
   );
 }
 
-function ViewTabs({ current }: { current: View }) {
+async function ViewTabs({ current }: { current: View }) {
+  const t = await getTranslations("workouts");
   const items: { id: View; label: string }[] = [
-    { id: "all", label: "Todos" },
-    { id: "templates", label: "Templates" },
-    { id: "assigned", label: "Atribuídos" },
+    { id: "all", label: t("tab_all") },
+    { id: "templates", label: t("tab_templates") },
+    { id: "assigned", label: t("tab_assigned") },
   ];
   return (
     <nav className="flex gap-1 rounded-xl border border-border bg-card/30 p-1">
@@ -217,22 +248,14 @@ function DaysRow({ days }: { days: number[] }) {
   );
 }
 
-function EmptyState({ view }: { view: View }) {
+async function EmptyState({ view }: { view: View }) {
+  const t = await getTranslations("workouts");
   const copy =
     view === "templates"
-      ? {
-          title: "Sem templates",
-          body: "Crie um template (treino sem aluna) e clone pra cada aluna depois.",
-        }
+      ? { title: t("empty_templates_title"), body: t("empty_templates_body") }
       : view === "assigned"
-        ? {
-            title: "Nada atribuído",
-            body: "Quando você atribuir um template ou criar treino direto pra uma aluna, ele aparece aqui.",
-          }
-        : {
-            title: "Primeiro treino",
-            body: "Define um título e qual aluna vai executar. Você arrasta os exercícios na ordem que quiser.",
-          };
+        ? { title: t("empty_assigned_title"), body: t("empty_assigned_body") }
+        : { title: t("empty_all_title"), body: t("empty_all_body") };
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/30 px-6 py-12 text-center">
       <span className="grid size-12 place-items-center rounded-full bg-card font-display text-xl text-foreground">
@@ -243,3 +266,4 @@ function EmptyState({ view }: { view: View }) {
     </div>
   );
 }
+

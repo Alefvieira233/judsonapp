@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, Inter } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -84,22 +86,27 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
+
   return (
     <html
-      lang="pt-BR"
+      lang={locale}
       className={`dark ${bodyFont.variable} ${displayFont.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        {children}
-        <CookieBanner />
-        <PwaRegister />
-        <Toaster position="top-center" richColors closeButton />
+        <NextIntlClientProvider locale={locale} messages={messages}>
+          {children}
+          <CookieBanner />
+          <PwaRegister />
+          <Toaster position="top-center" richColors closeButton />
+        </NextIntlClientProvider>
         {/* Vercel telemetry — opt-in via the Vercel project. No cookies, no PII. */}
         <Analytics />
         <SpeedInsights />

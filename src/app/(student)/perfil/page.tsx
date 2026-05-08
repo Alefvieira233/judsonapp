@@ -16,16 +16,24 @@ import {
   TrophyIcon,
 } from "lucide-react";
 
+import { getTranslations } from "next-intl/server";
+
 import { CopyButton } from "@/components/copy-button";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { PushOptIn } from "@/components/push-opt-in";
 import { buttonVariants } from "@/components/ui/button";
+import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentStudent } from "@/lib/auth";
 import { BADGES } from "@/lib/badges";
+import { computeStreak, timeAgo } from "@/lib/dates";
 import { createClient } from "@/lib/supabase/server";
 
 import { LogoutButton } from "./logout-button";
 
-export const metadata = { title: "Perfil" };
+export async function generateMetadata() {
+  const t = await getTranslations("perfil");
+  return { title: t("metadata_title") };
+}
 
 type LogRow = {
   id: string;
@@ -50,46 +58,13 @@ type ReferralRow = {
   referred: { full_name: string } | null;
 };
 
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function dayDiff(a: Date, b: Date): number {
-  return Math.round((startOfDay(a).getTime() - startOfDay(b).getTime()) / 86_400_000);
-}
-
-function computeStreak(completedDates: Date[]): number {
-  if (completedDates.length === 0) return 0;
-  const today = startOfDay(new Date());
-  const days = new Set(completedDates.map((d) => startOfDay(d).getTime()));
-  let cursor = today;
-  if (!days.has(cursor.getTime())) {
-    cursor = new Date(cursor.getTime() - 86_400_000);
-    if (!days.has(cursor.getTime())) return 0;
-  }
-  let streak = 0;
-  while (days.has(cursor.getTime())) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const days = dayDiff(new Date(), d);
-  if (days === 0) return "hoje";
-  if (days === 1) return "ontem";
-  if (days < 7) return `há ${days} dias`;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
-
 export default async function StudentProfilePage() {
   const session = await getCurrentStudent();
   if (!session) return null;
   const { profile, tenant } = session;
+
+  const t = await getTranslations("perfil");
+  const tc = await getTranslations("common");
 
   const supabase = await createClient();
 
@@ -179,7 +154,10 @@ export default async function StudentProfilePage() {
   const initial = (Array.from(profile.full_name)[0] ?? "?").toUpperCase();
   const code = profile.referral_code ?? "—";
   const tenantFirst = tenant.name.split(" ")[0] ?? "personal";
-  const shareMessage = `Oi! Vem treinar com o ${tenant.name} comigo. Quando entrar, fala que foi indicação minha (código ${code}) — eu ganho bônus e tu também 💪`;
+  const shareMessage = t("referral_share_message", {
+    trainer: tenant.name,
+    code,
+  });
   const whatsappShare = `https://wa.me/?text=${encodeURIComponent(shareMessage)}`;
 
   return (
@@ -200,7 +178,7 @@ export default async function StudentProfilePage() {
         </span>
         <div className="flex min-w-0 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Aluna · {tenant.name}
+            {t("role_eyebrow")} · {tenant.name}
           </span>
           <h1 className="truncate font-display text-3xl leading-tight">
             {profile.full_name}
@@ -212,25 +190,31 @@ export default async function StudentProfilePage() {
       </header>
 
       <ul className="grid grid-cols-3 gap-2">
-        <Stat
-          icon={<ListChecksIcon className="size-4" />}
-          label="Treinos"
-          value={total.toString()}
-        />
-        <Stat
-          icon={<FlameIcon className="size-4" />}
-          label="Streak"
-          value={`${streak} ${streak === 1 ? "dia" : "dias"}`}
-        />
-        <Stat
-          icon={<ClockIcon className="size-4" />}
-          label="Tempo total"
-          value={
-            totalMinutes < 60
-              ? `${totalMinutes}min`
-              : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
-          }
-        />
+        <li>
+          <StatCard
+            icon={<ListChecksIcon className="size-3.5" />}
+            label={t("stat_workouts")}
+            value={total.toString()}
+          />
+        </li>
+        <li>
+          <StatCard
+            icon={<FlameIcon className="size-3.5" />}
+            label={t("stat_streak")}
+            value={`${streak} ${streak === 1 ? t("stat_streak_one") : t("stat_streak_other")}`}
+          />
+        </li>
+        <li>
+          <StatCard
+            icon={<ClockIcon className="size-3.5" />}
+            label={t("stat_total_time")}
+            value={
+              totalMinutes < 60
+                ? `${totalMinutes}min`
+                : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
+            }
+          />
+        </li>
       </ul>
 
       <Link
@@ -246,13 +230,13 @@ export default async function StudentProfilePage() {
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Seu plano
+            {t("plan_eyebrow")}
           </span>
           <span className="truncate font-display text-xl leading-tight">
-            {plan?.name ?? "Sem plano ativo"}
+            {plan?.name ?? t("plan_none")}
           </span>
           <span className="text-xs text-muted-foreground">
-            {plan?.price_label ?? "Conheça os planos disponíveis"}
+            {plan?.price_label ?? t("plan_explore")}
           </span>
         </div>
         <ChevronRightIcon
@@ -268,26 +252,26 @@ export default async function StudentProfilePage() {
           </span>
           <div className="flex min-w-0 flex-col">
             <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-              Indique uma amiga
+              {t("referral_eyebrow")}
             </span>
-            <h2 className="font-display text-xl leading-tight">Ganhe bônus</h2>
+            <h2 className="font-display text-xl leading-tight">
+              {t("referral_title")}
+            </h2>
           </div>
         </header>
 
         <p className="text-sm text-muted-foreground">
-          Cada amiga que vira aluna do {tenantFirst} pelo teu código vira
-          benefício pra ti — desconto na mensalidade ou bônus em consultoria.
-          Combine direto pelo WhatsApp.
+          {t("referral_body", { trainer: tenantFirst })}
         </p>
 
         <div className="flex items-center gap-2 rounded-xl border border-border bg-background/60 px-3 py-2.5">
           <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-            Código
+            {t("referral_code_label")}
           </span>
           <span className="font-mono text-sm font-bold tracking-wider text-foreground">
             {code}
           </span>
-          <CopyButton value={code} label="Copiar" className="ml-auto" />
+          <CopyButton value={code} label={t("referral_copy")} className="ml-auto" />
         </div>
 
         <a
@@ -300,16 +284,25 @@ export default async function StudentProfilePage() {
           })}
         >
           <MessageCircleIcon className="size-4" />
-          Compartilhar no WhatsApp
+          {t("referral_share")}
         </a>
 
         {referrals.length > 0 ? (
           <div className="flex flex-col gap-2 border-t border-border pt-4">
             <div className="flex items-center justify-between">
-              <span className="font-display text-base">Suas indicações</span>
+              <span className="font-display text-base">
+                {t("referrals_title")}
+              </span>
               <span className="text-xs text-muted-foreground">
-                {referrals.length} total · {rewardedReferrals} bonificada
-                {rewardedReferrals === 1 ? "" : "s"}
+                {rewardedReferrals === 1
+                  ? t("referrals_summary", {
+                      total: referrals.length,
+                      rewarded: rewardedReferrals,
+                    })
+                  : t("referrals_summary_other", {
+                      total: referrals.length,
+                      rewarded: rewardedReferrals,
+                    })}
               </span>
             </div>
             <ul className="flex flex-col gap-1.5">
@@ -319,7 +312,7 @@ export default async function StudentProfilePage() {
                   className="flex items-center justify-between gap-2 rounded-md bg-background/50 px-3 py-2 text-xs"
                 >
                   <span className="truncate text-foreground">
-                    {r.referred?.full_name ?? "Aluna"}
+                    {r.referred?.full_name ?? t("role_eyebrow")}
                   </span>
                   <span
                     className={
@@ -329,10 +322,10 @@ export default async function StudentProfilePage() {
                     }
                   >
                     {r.status === "rewarded"
-                      ? r.reward_label ?? "Bonificada"
+                      ? r.reward_label ?? t("referral_status_rewarded")
                       : r.status === "active"
-                      ? "Ativa"
-                      : "Pendente"}
+                      ? t("referral_status_active")
+                      : t("referral_status_pending")}
                   </span>
                 </li>
               ))}
@@ -343,15 +336,15 @@ export default async function StudentProfilePage() {
 
       <section className="flex flex-col gap-3">
         <header className="flex items-end justify-between gap-3">
-          <h2 className="font-display text-xl">Histórico</h2>
+          <h2 className="font-display text-xl">{t("history_title")}</h2>
           <span className="text-xs text-muted-foreground">
-            {total === 0 ? "" : `últimos ${recent.length}`}
+            {total === 0 ? "" : t("history_recent", { count: recent.length })}
           </span>
         </header>
 
         {recent.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border bg-card/20 px-4 py-6 text-center text-sm text-muted-foreground">
-            Nenhum treino concluído ainda. Bora começar?
+            {t("history_empty")}
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
@@ -362,10 +355,10 @@ export default async function StudentProfilePage() {
               >
                 <div className="flex min-w-0 flex-col gap-0.5">
                   <span className="truncate font-display text-base leading-tight">
-                    {log.workout?.title ?? "Treino removido"}
+                    {log.workout?.title ?? t("workout_removed")}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    {log.completed_at ? formatDate(log.completed_at) : ""}
+                    {log.completed_at ? timeAgo(log.completed_at) : ""}
                     {log.duration_minutes ? ` · ${log.duration_minutes}min` : ""}
                     {log.rpe ? ` · RPE ${log.rpe}` : ""}
                   </span>
@@ -388,7 +381,11 @@ export default async function StudentProfilePage() {
           <MessageCircleIcon className="size-5" />
           {unreadChat > 0 ? (
             <span
-              aria-label={`${unreadChat} mensagens não lidas`}
+              aria-label={
+                unreadChat === 1
+                  ? t("chat_unread_title_one", { count: unreadChat })
+                  : t("chat_unread_title_other", { count: unreadChat })
+              }
               className="absolute -right-1 -top-1 grid min-w-[20px] place-items-center rounded-full bg-[var(--brand-primary)] px-1 text-[10px] font-bold leading-[20px] text-white shadow"
             >
               {unreadChat > 9 ? "9+" : unreadChat}
@@ -397,17 +394,17 @@ export default async function StudentProfilePage() {
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Chat com {tenantFirst.toLowerCase()}
+            {t("chat_eyebrow", { trainer: tenantFirst.toLowerCase() })}
           </span>
           <span className="truncate font-display text-xl leading-tight">
             {unreadChat > 0
-              ? `${unreadChat} nova${unreadChat === 1 ? "" : "s"} mensagem${unreadChat === 1 ? "" : "s"}`
-              : "Conversa direta"}
+              ? unreadChat === 1
+                ? t("chat_unread_title_one", { count: unreadChat })
+                : t("chat_unread_title_other", { count: unreadChat })
+              : t("chat_default_title")}
           </span>
           <span className="text-xs text-muted-foreground">
-            {unreadChat > 0
-              ? "Toca pra ler agora"
-              : "Pergunta, dúvida, feedback do treino"}
+            {unreadChat > 0 ? t("chat_unread_body") : t("chat_default_body")}
           </span>
         </div>
         <ChevronRightIcon
@@ -435,15 +432,15 @@ export default async function StudentProfilePage() {
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Anamnese
+            {t("anamnese_eyebrow")}
           </span>
           <span className="truncate font-display text-xl leading-tight">
-            {anamnese?.signed_at ? "Já preenchida" : "Pendente"}
+            {anamnese?.signed_at ? t("anamnese_done") : t("anamnese_pending")}
           </span>
           <span className="text-xs text-muted-foreground">
             {anamnese?.signed_at
-              ? "Toca pra revisar e atualizar quando precisar"
-              : "Preencha antes de começar os treinos"}
+              ? t("anamnese_done_body")
+              : t("anamnese_pending_body")}
           </span>
         </div>
         <ChevronRightIcon
@@ -461,15 +458,17 @@ export default async function StudentProfilePage() {
         </span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">
-            Fotos de progresso
+            {t("photos_eyebrow")}
           </span>
           <span className="truncate font-display text-xl leading-tight">
-            {photoCount > 0 ? "Acompanhe sua evolução" : "Subir primeira"}
+            {photoCount > 0 ? t("photos_evolve") : t("photos_first")}
           </span>
           <span className="text-xs text-muted-foreground">
             {photoCount > 0
-              ? `${photoCount} foto${photoCount === 1 ? "" : "s"} salva${photoCount === 1 ? "" : "s"}`
-              : "Tira a primeira pra começar a comparar"}
+              ? photoCount === 1
+                ? t("photos_count_one", { count: photoCount })
+                : t("photos_count_other", { count: photoCount })
+              : t("photos_helper")}
           </span>
         </div>
         <ChevronRightIcon
@@ -482,7 +481,7 @@ export default async function StudentProfilePage() {
         <header className="flex items-end justify-between gap-3">
           <h2 className="flex items-center gap-2 font-display text-xl">
             <TrophyIcon className="size-5 text-[var(--brand-primary)]" />
-            Conquistas
+            {t("achievements_title")}
           </h2>
           <span className="text-xs text-muted-foreground tabular-nums">
             {earnedCount}/{BADGES.length}
@@ -529,7 +528,7 @@ export default async function StudentProfilePage() {
           href="/perfil/editar"
           className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card/30 p-4 transition-colors hover:bg-card/60"
         >
-          <span className="font-display text-base">Editar perfil</span>
+          <span className="font-display text-base">{t("edit_profile")}</span>
           <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
         </Link>
 
@@ -543,7 +542,7 @@ export default async function StudentProfilePage() {
             className: "w-full",
           })}
         >
-          Falar com o {tenantFirst.toLowerCase()} no WhatsApp
+          {t("whatsapp_cta", { trainer: tenantFirst.toLowerCase() })}
         </a>
 
         <LogoutButton />
@@ -551,14 +550,21 @@ export default async function StudentProfilePage() {
 
       <section className="flex flex-col gap-2 pt-4">
         <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          Notificações
+          {tc("language_app")}
+        </span>
+        <LocaleSwitcher />
+      </section>
+
+      <section className="flex flex-col gap-2 pt-4">
+        <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
+          {t("notifications_eyebrow")}
         </span>
         <PushOptIn />
       </section>
 
       <section className="flex flex-col gap-2 pt-4">
         <span className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-          Privacidade · LGPD
+          {t("privacy_eyebrow")}
         </span>
         <a
           href="/perfil/dados"
@@ -566,7 +572,7 @@ export default async function StudentProfilePage() {
         >
           <span className="flex items-center gap-3">
             <DownloadIcon className="size-4 text-muted-foreground" aria-hidden />
-            <span className="text-foreground">Exportar meus dados</span>
+            <span className="text-foreground">{t("export_data")}</span>
           </span>
           <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
         </a>
@@ -576,7 +582,7 @@ export default async function StudentProfilePage() {
         >
           <span className="flex items-center gap-3">
             <Trash2Icon className="size-4 text-muted-foreground" aria-hidden />
-            <span className="text-foreground">Excluir minha conta</span>
+            <span className="text-foreground">{t("delete_account")}</span>
           </span>
           <ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden />
         </Link>
@@ -585,21 +591,3 @@ export default async function StudentProfilePage() {
   );
 }
 
-function Stat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <li className="flex flex-col gap-1 rounded-xl border border-border bg-card/40 p-3">
-      <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-        {icon} {label}
-      </span>
-      <span className="font-display text-2xl leading-none">{value}</span>
-    </li>
-  );
-}

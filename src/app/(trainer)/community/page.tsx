@@ -1,5 +1,7 @@
-import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/ui/page-header";
 import { getCurrentProfile } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 import { CreatePostSheet } from "./create-post-sheet";
 import { PostCard, type TrainerComment, type TrainerPost } from "./post-card";
@@ -98,25 +100,22 @@ export default async function CommunityPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-6 md:gap-8 md:px-6 md:py-10">
-      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between md:gap-4">
-        <div className="flex flex-col gap-1">
-          <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
-            Painel
-          </span>
-          <h1 className="font-display text-4xl leading-none md:text-5xl">
-            Comunidade
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {cards.length === 0
-              ? "Nada publicado ainda. Faça o primeiro post."
-              : `${cards.length} post${cards.length === 1 ? "" : "s"} publicado${cards.length === 1 ? "" : "s"}.`}
-          </p>
-        </div>
-        <CreatePostSheet />
-      </header>
+      <PageHeader
+        eyebrow="Painel"
+        title="Comunidade"
+        description={
+          cards.length === 0
+            ? "Nada publicado ainda. Faça o primeiro post."
+            : `${cards.length} post${cards.length === 1 ? "" : "s"} publicado${cards.length === 1 ? "" : "s"}.`
+        }
+        trailing={<CreatePostSheet />}
+      />
 
       {cards.length === 0 ? (
-        <EmptyState />
+        <EmptyState
+          title="A comunidade começa aqui"
+          description="Posts aparecem no app das alunas. Solte uma atualização, dica do dia ou bastidor — e fixe os mais importantes pra ficarem no topo."
+        />
       ) : (
         <ul className="flex flex-col gap-3">
           {cards.map((p) => (
@@ -126,18 +125,6 @@ export default async function CommunityPage() {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card/30 px-6 py-12 text-center">
-      <h2 className="font-display text-2xl">A comunidade começa aqui</h2>
-      <p className="max-w-sm text-sm text-muted-foreground">
-        Posts aparecem no app das alunas. Solte uma atualização, dica do dia ou
-        bastidor — e fixe os mais importantes pra ficarem no topo.
-      </p>
     </div>
   );
 }

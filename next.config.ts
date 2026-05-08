@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 // Security headers applied to every response. CSP itself is set per-request
 // in src/proxy.ts (it needs a nonce that varies per response). Everything
@@ -73,12 +76,14 @@ const sentryEnabled = !!(
   process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN
 );
 
+const baseConfig = withNextIntl(nextConfig);
+
 export default sentryEnabled
-  ? withSentryConfig(nextConfig, {
+  ? withSentryConfig(baseConfig, {
       // Only forward what's needed — Sentry SDK reads org/project/auth from env.
       silent: !process.env.CI,
       widenClientFileUpload: true,
       sourcemaps: { disable: false },
       disableLogger: true,
     })
-  : nextConfig;
+  : baseConfig;

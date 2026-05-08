@@ -993,7 +993,9 @@ export type Database = {
           instagram_handle: string | null
           logo_url: string | null
           name: string
+          owner_user_id: string | null
           slug: string
+          stripe_customer_id: string | null
           tagline: string | null
           updated_at: string | null
           whatsapp_number: string
@@ -1014,7 +1016,9 @@ export type Database = {
           instagram_handle?: string | null
           logo_url?: string | null
           name: string
+          owner_user_id?: string | null
           slug: string
+          stripe_customer_id?: string | null
           tagline?: string | null
           updated_at?: string | null
           whatsapp_number: string
@@ -1035,10 +1039,130 @@ export type Database = {
           instagram_handle?: string | null
           logo_url?: string | null
           name?: string
+          owner_user_id?: string | null
           slug?: string
+          stripe_customer_id?: string | null
           tagline?: string | null
           updated_at?: string | null
           whatsapp_number?: string
+        }
+        Relationships: []
+      }
+      tenant_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan: string
+          status: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          trial_end: string | null
+          updated_at: string
+          value_cents: number
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id: string
+          trial_end?: string | null
+          updated_at?: string
+          value_cents?: number
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan?: string
+          status?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string
+          trial_end?: string | null
+          updated_at?: string
+          value_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_subscriptions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_log: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          created_at: string
+          id: string
+          ip: string | null
+          metadata: Json
+          target_id: string | null
+          target_type: string | null
+          tenant_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string | null
+          tenant_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          created_at?: string
+          id?: string
+          ip?: string | null
+          metadata?: Json
+          target_id?: string | null
+          target_type?: string | null
+          tenant_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stripe_events: {
+        Row: {
+          event_id: string
+          payload: Json
+          received_at: string
+          type: string
+        }
+        Insert: {
+          event_id: string
+          payload: Json
+          received_at?: string
+          type: string
+        }
+        Update: {
+          event_id?: string
+          payload?: Json
+          received_at?: string
+          type?: string
         }
         Relationships: []
       }
@@ -1260,6 +1384,10 @@ export type Database = {
         Args: { p_name: string; p_token: string }
         Returns: string
       }
+      resolve_tenant_by_host: {
+        Args: { p_host: string }
+        Returns: string | null
+      }
     }
     Enums: {
       [_ in never]: never
@@ -1418,3 +1546,6 @@ export type PaymentEvent = Tables<"payment_events">
 export type PushSubscription = Tables<"push_subscriptions">
 export type ChatThread = Tables<"chat_threads">
 export type ChatMessage = Tables<"chat_messages">
+export type TenantSubscription = Tables<"tenant_subscriptions">
+export type AuditLog = Tables<"audit_log">
+export type StripeEvent = Tables<"stripe_events">

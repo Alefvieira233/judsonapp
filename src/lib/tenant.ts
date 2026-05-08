@@ -1,14 +1,22 @@
-import type { CSSProperties } from "react";
+import "server-only";
 
-import { createClient } from "@/lib/supabase/server";
+import type { CSSProperties } from "react";
+import { unstable_cache } from "next/cache";
+import { headers } from "next/headers";
+
+import { createAdminClient, createClient } from "@/lib/supabase/server";
 import type { Tenant } from "@/types/database";
 
 /**
- * MVP anchor: single tenant resolved from this slug. When multi-tenant lands,
- * resolve from request host (`tenants.custom_domain`) or subdomain
- * (`<slug>.app.fitcoach.com.br`).
+ * Cliente-zero anchor: when MULTI_TENANT_ENABLED !== "true" we always resolve
+ * to this slug. Once SaaS mode flips on, host header drives resolution and
+ * this only acts as a build-time / dev-offline fallback.
  */
 export const DEFAULT_TENANT_SLUG = "judsonlobato";
+
+export function isMultiTenantEnabled(): boolean {
+  return process.env.MULTI_TENANT_ENABLED === "true";
+}
 
 export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   const supabase = await createClient();
@@ -25,8 +33,61 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   return data;
 }
 
+const getTenantByHostCached = unstable_cache(
+  async (host: string): Promise<Tenant | null> => {
+    // Admin client is intentional: this runs inside unstable_cache, so it must
+    // not depend on per-request cookies. The query is read-only and only
+    // resolves a tenant id from a host string — no PII exposed.
+    const admin = createAdminClient();
+    const { data: tenantId, error: rpcError } = await admin.rpc(
+      "resolve_tenant_by_host",
+      { p_host: host },
+    );
+
+    if (rpcError) {
+      console.error("[tenant] resolve_tenant_by_host error:", rpcError);
+      return null;
+    }
+    if (!tenantId) return null;
+
+    const { data: tenant, error } = await admin
+      .from("tenants")
+      .select("*")
+      .eq("id", tenantId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("[tenant] tenant fetch error:", error);
+      return null;
+    }
+    return tenant;
+  },
+  ["tenant-by-host"],
+  {
+    revalidate: 300,
+    // Tag is keyed by host so updateTag(`tenant:host:${host}`) targets it.
+    tags: ["tenant:host"],
+  },
+);
+
 export async function getCurrentTenant(): Promise<Tenant | null> {
-  return getTenantBySlug(DEFAULT_TENANT_SLUG);
+  // Multi-tenant off: keep the cliente-zero behavior. No host parsing needed.
+  if (!isMultiTenantEnabled()) {
+    return getTenantBySlug(DEFAULT_TENANT_SLUG);
+  }
+
+  let host: string | null = null;
+  try {
+    const h = await headers();
+    host = h.get("host");
+  } catch {
+    // Outside request scope (build, scripts). Fall back to default slug so
+    // static analysis and metadata helpers still resolve a tenant.
+    return getTenantBySlug(DEFAULT_TENANT_SLUG);
+  }
+
+  if (!host) return null;
+  return getTenantByHostCached(host.toLowerCase());
 }
 
 /**

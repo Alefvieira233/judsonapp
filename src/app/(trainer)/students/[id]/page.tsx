@@ -14,8 +14,11 @@ import {
 } from "lucide-react";
 import { z } from "zod";
 
-import { createClient } from "@/lib/supabase/server";
+import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import { getCurrentProfile } from "@/lib/auth";
+import { computeStreak, timeAgo } from "@/lib/dates";
+import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.string().uuid();
 
@@ -50,40 +53,6 @@ type ReferralFromDb = {
   referrer: { id: string; full_name: string } | null;
   referred: { id: string; full_name: string } | null;
 };
-
-function startOfDay(d: Date): Date {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
-}
-
-function computeStreak(dates: Date[]): number {
-  if (dates.length === 0) return 0;
-  const today = startOfDay(new Date());
-  const days = new Set(dates.map((d) => startOfDay(d).getTime()));
-  let cursor = today;
-  if (!days.has(cursor.getTime())) {
-    cursor = new Date(cursor.getTime() - 86_400_000);
-    if (!days.has(cursor.getTime())) return 0;
-  }
-  let streak = 0;
-  while (days.has(cursor.getTime())) {
-    streak += 1;
-    cursor = new Date(cursor.getTime() - 86_400_000);
-  }
-  return streak;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  const days = Math.round(
-    (startOfDay(new Date()).getTime() - startOfDay(d).getTime()) / 86_400_000,
-  );
-  if (days === 0) return "hoje";
-  if (days === 1) return "ontem";
-  if (days < 7) return `há ${days} dias`;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
-}
 
 export default async function StudentDetailPage({
   params,
@@ -294,25 +263,31 @@ export default async function StudentDetailPage({
       </header>
 
       <ul className="grid grid-cols-3 gap-2">
-        <Stat
-          icon={<ListChecksIcon className="size-4" />}
-          label="Treinos"
-          value={total.toString()}
-        />
-        <Stat
-          icon={<FlameIcon className="size-4" />}
-          label="Streak"
-          value={`${streak} ${streak === 1 ? "dia" : "dias"}`}
-        />
-        <Stat
-          icon={<ClockIcon className="size-4" />}
-          label="Tempo total"
-          value={
-            totalMinutes < 60
-              ? `${totalMinutes}min`
-              : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
-          }
-        />
+        <li>
+          <StatCard
+            icon={<ListChecksIcon className="size-3.5" />}
+            label="Treinos"
+            value={total.toString()}
+          />
+        </li>
+        <li>
+          <StatCard
+            icon={<FlameIcon className="size-3.5" />}
+            label="Streak"
+            value={`${streak} ${streak === 1 ? "dia" : "dias"}`}
+          />
+        </li>
+        <li>
+          <StatCard
+            icon={<ClockIcon className="size-3.5" />}
+            label="Tempo total"
+            value={
+              totalMinutes < 60
+                ? `${totalMinutes}min`
+                : `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`
+            }
+          />
+        </li>
       </ul>
 
       <Link
@@ -458,9 +433,11 @@ export default async function StudentDetailPage({
       <section className="flex flex-col gap-3">
         <h2 className="font-display text-xl">Histórico</h2>
         {recent.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-border bg-card/30 px-4 py-6 text-center text-sm text-muted-foreground">
-            Ainda não concluiu nenhum treino.
-          </p>
+          <EmptyState
+            title="Sem histórico"
+            description="Ainda não concluiu nenhum treino."
+            className="px-4 py-6"
+          />
         ) : (
           <ul className="flex flex-col gap-2">
             {recent.map((log) => (
@@ -473,7 +450,7 @@ export default async function StudentDetailPage({
                     {log.workout?.title ?? "Treino removido"}
                   </span>
                   <span className="text-[11px] text-muted-foreground">
-                    {log.completed_at ? formatDate(log.completed_at) : ""}
+                    {log.completed_at ? timeAgo(log.completed_at) : ""}
                     {log.duration_minutes ? ` · ${log.duration_minutes}min` : ""}
                     {log.rpe ? ` · RPE ${log.rpe}` : ""}
                   </span>
@@ -494,25 +471,6 @@ export default async function StudentDetailPage({
         }}
       />
     </div>
-  );
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <li className="flex flex-col gap-1 rounded-xl border border-border bg-card/40 p-3">
-      <span className="flex items-center gap-1 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
-        {icon} {label}
-      </span>
-      <span className="font-display text-2xl leading-none">{value}</span>
-    </li>
   );
 }
 

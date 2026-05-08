@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { CheckCircle2Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,14 +16,16 @@ import {
 
 function SubmitButton() {
   const { pending } = useFormStatus();
+  const t = useTranslations("auth");
   return (
     <Button type="submit" size="lg" className="w-full" disabled={pending}>
-      {pending ? "Enviando…" : "Receber link no email"}
+      {pending ? t("student_submitting") : t("student_submit")}
     </Button>
   );
 }
 
 export function StudentLoginForm() {
+  const t = useTranslations("auth");
   const [state, formAction] = useActionState<StudentLoginState, FormData>(
     requestStudentMagicLinkAction,
     undefined,
@@ -32,11 +35,11 @@ export function StudentLoginForm() {
     return (
       <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-card/40 p-6 text-center">
         <CheckCircle2Icon className="size-10 text-[var(--brand-primary)]" />
-        <h2 className="font-display text-2xl">Confere teu email</h2>
+        <h2 className="font-display text-2xl">{t("student_check_email_title")}</h2>
         <p className="text-sm text-muted-foreground">
-          Mandei um link pra{" "}
-          <span className="text-foreground">{state.email}</span>. Abre no
-          celular e clica pra entrar.
+          {t("student_check_email_body_prefix")}{" "}
+          <span className="text-foreground">{state.email}</span>
+          {t("student_check_email_body_suffix")}
         </p>
       </div>
     );
@@ -45,14 +48,14 @@ export function StudentLoginForm() {
   return (
     <form action={formAction} className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="email">Seu email</Label>
+        <Label htmlFor="email">{t("student_email_label")}</Label>
         <Input
           id="email"
           name="email"
           type="email"
           autoComplete="email"
           required
-          placeholder="voce@exemplo.com"
+          placeholder={t("student_email_placeholder")}
         />
       </div>
 
@@ -68,7 +71,7 @@ export function StudentLoginForm() {
       <SubmitButton />
 
       <p className="text-center text-xs text-muted-foreground">
-        Sem senha. Você recebe um link no email — clica nele pra entrar no app.
+        {t("student_helper")}
       </p>
     </form>
   );

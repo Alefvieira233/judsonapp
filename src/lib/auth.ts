@@ -9,9 +9,14 @@ export type Session = { profile: Profile; tenant: Tenant };
 
 /**
  * Returns the authenticated profile for the current request.
- * Side-effect: on first login of the personal trainer, auto-provisions the
- * owner profile linked to the cliente-zero tenant. This avoids forcing the
- * user to run extra SQL after creating their auth user in Supabase.
+ *
+ * Owner provisioning rules:
+ *   - If a profile already exists, return it as-is.
+ *   - If `tenants.owner_user_id` matches the auth user, auto-provision the
+ *     owner profile (first login of the pre-pinned owner).
+ *   - Otherwise we never auto-create an owner — that closes the auto-provision
+ *     back door (any first login becoming owner). Tenants with no owner pin
+ *     yet must call `claimTenantOwnerAction` (one-shot, atomic).
  */
 export async function getCurrentProfile(): Promise<Session | null> {
   const supabase = await createClient();
@@ -36,11 +41,11 @@ export async function getCurrentProfile(): Promise<Session | null> {
   // consume_invite RPC. Never auto-provision an invited user as owner.
   if (user.user_metadata?.invite_token) return null;
 
-  // First sign-in of the personal trainer: bootstrap the owner profile on the
-  // cliente-zero tenant. Done via service-role client because this is a
-  // privileged operation — the user has no profile yet, so RLS context based
-  // on auth_tenant_id() / auth_role() can't grant them access until the row
-  // exists.
+  // Bootstrap is gated by `tenants.owner_user_id`. Only the pre-pinned user
+  // can become owner via auto-provision. If the pin doesn't match (or isn't
+  // set yet), return null so layouts redirect to /login.
+  if (tenant.owner_user_id !== user.id) return null;
+
   const admin = createAdminClient();
   const { data: created, error } = await admin
     .from("profiles")
@@ -48,7 +53,8 @@ export async function getCurrentProfile(): Promise<Session | null> {
       id: user.id,
       tenant_id: tenant.id,
       role: "owner",
-      full_name: (user.user_metadata?.full_name as string | undefined) ?? tenant.name,
+      full_name:
+        (user.user_metadata?.full_name as string | undefined) ?? tenant.name,
       email: user.email ?? null,
     })
     .select("*")
@@ -59,10 +65,8 @@ export async function getCurrentProfile(): Promise<Session | null> {
     return null;
   }
 
-  // First owner login is implicit consent to the current Terms + Privacy
-  // versions. The /login page links both — a checkbox would create login
-  // friction for the personal trainer (1 user). Re-evaluate when SaaS launches
-  // and /login is reachable by anyone.
+  // First owner login implies acceptance of the current Terms + Privacy
+  // versions linked from /login.
   await recordConsent({
     userId: user.id,
     tenantId: tenant.id,

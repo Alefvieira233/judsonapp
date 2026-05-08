@@ -1,8 +1,15 @@
 // Next.js instrumentation hook. Loaded once on the server (Node and Edge).
 // We only call into Sentry's init when a DSN is present — this keeps local
-// dev free of telemetry noise + zero-cost when Sentry isn't configured yet.
+// dev free of telemetry noise (and skips the @prisma/instrumentation import
+// chain that warns on dynamic require under webpack) + zero-cost when Sentry
+// isn't configured yet.
 
 export async function register() {
+  const dsnSet = !!(
+    process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN
+  );
+  if (!dsnSet) return;
+
   if (process.env.NEXT_RUNTIME === "nodejs") {
     await import("../sentry.server.config");
   }

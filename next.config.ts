@@ -48,6 +48,18 @@ const nextConfig: NextConfig = {
       "@dnd-kit/utilities",
     ],
   },
+  // Keep heavy/native deps out of the webpack server bundle. They run with
+  // require() at runtime instead of being bundled — eliminates the
+  // "Critical dependency: the request of a dependency is an expression"
+  // warning chain from @sentry/node → @prisma/instrumentation → opentelemetry
+  // and trims dev compile time noticeably.
+  serverExternalPackages: [
+    "@sentry/nextjs",
+    "@sentry/node",
+    "@prisma/instrumentation",
+    "@opentelemetry/instrumentation",
+    "web-push",
+  ],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

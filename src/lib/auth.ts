@@ -1,5 +1,7 @@
 import "server-only";
 
+import { cache } from "react";
+
 import { recordConsent } from "@/lib/consent";
 import { log } from "@/lib/logger";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
@@ -11,6 +13,11 @@ export type Session = { profile: Profile; tenant: Tenant };
 /**
  * Returns the authenticated profile for the current request.
  *
+ * Wrapped in `React.cache()` so the same render tree (middleware → layout →
+ * page → server actions) only pays one auth.getUser + tenant + profile fetch
+ * — without it, every Server Component that called getCurrentProfile triggered
+ * a fresh round-trip, and `/dashboard` was making 3-5 redundant calls.
+ *
  * Owner provisioning rules:
  *   - If a profile already exists, return it as-is.
  *   - If `tenants.owner_user_id` matches the auth user, auto-provision the
@@ -19,7 +26,9 @@ export type Session = { profile: Profile; tenant: Tenant };
  *     back door (any first login becoming owner). Tenants with no owner pin
  *     yet must call `claimTenantOwnerAction` (one-shot, atomic).
  */
-export async function getCurrentProfile(): Promise<Session | null> {
+export const getCurrentProfile = cache(_getCurrentProfile);
+
+async function _getCurrentProfile(): Promise<Session | null> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -107,8 +116,12 @@ async function enrichSentryUser(profile: Profile, tenant: Tenant): Promise<void>
  * Authenticated student session for the (student) route group. Returns null
  * if there is no auth, no profile, or the profile is not a student. Never
  * auto-provisions — student profiles are created by /auth/callback only.
+ *
+ * Cached per render via `React.cache` — see getCurrentProfile.
  */
-export async function getCurrentStudent(): Promise<Session | null> {
+export const getCurrentStudent = cache(_getCurrentStudent);
+
+async function _getCurrentStudent(): Promise<Session | null> {
   const session = await getCurrentProfile();
   if (!session) return null;
   if (session.profile.role !== "student") return null;

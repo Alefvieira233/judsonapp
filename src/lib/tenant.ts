@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { CSSProperties } from "react";
+import { cache, type CSSProperties } from "react";
 import { unstable_cache } from "next/cache";
 import { headers } from "next/headers";
 
@@ -19,7 +19,11 @@ export function isMultiTenantEnabled(): boolean {
   return process.env.MULTI_TENANT_ENABLED === "true";
 }
 
-export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
+// Per-render cache: cliente-zero hits this on every Server Component.
+// Without it, /dashboard re-fetched the same row 3-5x in a single render.
+export const getTenantBySlug = cache(_getTenantBySlug);
+
+async function _getTenantBySlug(slug: string): Promise<Tenant | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("tenants")
@@ -71,7 +75,11 @@ const getTenantByHostCached = unstable_cache(
   },
 );
 
-export async function getCurrentTenant(): Promise<Tenant | null> {
+// Cached per render so middleware → layout → page → server action share a
+// single tenant lookup.
+export const getCurrentTenant = cache(_getCurrentTenant);
+
+async function _getCurrentTenant(): Promise<Tenant | null> {
   // Multi-tenant off: keep the cliente-zero behavior. No host parsing needed.
   if (!isMultiTenantEnabled()) {
     return getTenantBySlug(DEFAULT_TENANT_SLUG);

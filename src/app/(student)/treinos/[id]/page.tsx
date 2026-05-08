@@ -20,7 +20,13 @@ type ItemRow = {
   rest_seconds: number | null;
   load_suggestion: string | null;
   notes: string | null;
-  exercise: { id: string; name: string; muscle_group: string | null } | null;
+  exercise: {
+    id: string;
+    name: string;
+    muscle_group: string | null;
+    video_url: string | null;
+    thumbnail_url: string | null;
+  } | null;
 };
 
 type LastLogRow = {
@@ -57,7 +63,7 @@ export default async function StudentWorkoutPage({
       .from("workout_items")
       .select(
         `id, position, sets, reps, rest_seconds, load_suggestion, notes,
-         exercise:exercises(id, name, muscle_group)`,
+         exercise:exercises(id, name, muscle_group, video_url, thumbnail_url)`,
       )
       .eq("workout_id", id)
       .order("position")
@@ -107,6 +113,8 @@ export default async function StudentWorkoutPage({
     muscle_group: it.exercise?.muscle_group ?? null,
     last_load: lastLoadByItem.get(it.id)?.load ?? null,
     last_reps: lastLoadByItem.get(it.id)?.reps ?? null,
+    video_url: it.exercise?.video_url ?? null,
+    video_thumbnail: it.exercise?.thumbnail_url ?? null,
   }));
 
   const runnerWorkout: RunnerWorkout = {

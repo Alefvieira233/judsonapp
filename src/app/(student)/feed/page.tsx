@@ -9,6 +9,7 @@ type PostRow = {
   id: string;
   content: string;
   media_url: string | null;
+  media_type: string | null;
   pinned: boolean | null;
   published_at: string | null;
   author: { full_name: string } | null;
@@ -38,7 +39,7 @@ export default async function StudentFeedPage() {
   const { data: postsData } = await supabase
     .from("community_posts")
     .select(
-      `id, content, media_url, pinned, published_at,
+      `id, content, media_url, media_type, pinned, published_at,
        author:profiles!community_posts_author_id_fkey(full_name),
        likes:community_reactions(count)`,
     )
@@ -95,6 +96,7 @@ export default async function StudentFeedPage() {
     id: p.id,
     content: p.content,
     media_url: p.media_url,
+    media_type: p.media_type,
     pinned: !!p.pinned,
     published_at: p.published_at,
     author: p.author,

@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { VideoEmbed } from "@/components/video-embed";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 import {
+  cancelWorkoutAction,
   completeWorkoutAction,
   logSetAction,
   startWorkoutAction,
@@ -58,6 +60,8 @@ export type RunnerItem = {
   muscle_group: string | null;
   last_load: number | null;
   last_reps: number | null;
+  video_url: string | null;
+  video_thumbnail: string | null;
 };
 
 type SetState = {
@@ -180,11 +184,18 @@ export function WorkoutRunner({
   };
 
   const confirmAbort = () => {
+    const id = logId;
     setAbortOpen(false);
     setLogId(null);
     startedAtRef.current = null;
     setElapsed(0);
     setRest(null);
+    if (id) {
+      // Fire-and-forget: the user is already navigating away. If the delete
+      // fails, the log will sit as an orphan but a future `cancelWorkoutAction`
+      // call will catch it.
+      cancelWorkoutAction({ workout_log_id: id }).catch(() => {});
+    }
     router.push("/home");
   };
 
@@ -282,6 +293,23 @@ export function WorkoutRunner({
         <p className="text-xs text-muted-foreground">
           {doneSets}/{totalSets} séries · {items.length} exercícios
         </p>
+        {running && totalSets > 0 ? (
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-card"
+            role="progressbar"
+            aria-valuenow={doneSets}
+            aria-valuemax={totalSets}
+            aria-valuemin={0}
+            aria-label="Progresso do treino"
+          >
+            <div
+              className="h-full bg-[var(--brand-primary)] transition-[width] duration-300 ease-out"
+              style={{
+                width: `${Math.round((doneSets / totalSets) * 100)}%`,
+              }}
+            />
+          </div>
+        ) : null}
       </header>
 
       {!running ? (
@@ -325,6 +353,17 @@ export function WorkoutRunner({
                 ) : null}
               </div>
             </div>
+
+            {item.video_url ? (
+              <div className="overflow-hidden rounded-xl border border-border bg-black">
+                <div className="aspect-video w-full">
+                  <VideoEmbed
+                    url={item.video_url}
+                    poster={item.video_thumbnail}
+                  />
+                </div>
+              </div>
+            ) : null}
 
             <ol className="flex flex-col gap-2">
               {Array.from({ length: item.sets }, (_, i) => i + 1).map((n) => {
@@ -440,7 +479,7 @@ function SetRow({
         state.done && "border-[var(--brand-primary)]/60 bg-[var(--brand-primary)]/5",
       )}
     >
-      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-card text-xs text-muted-foreground">
+      <span className="grid size-11 shrink-0 place-items-center rounded-md bg-card font-display text-base text-muted-foreground">
         {setNumber}
       </span>
       <Input
@@ -451,7 +490,7 @@ function SetRow({
         value={state.reps}
         onChange={(e) => onChangeReps(e.target.value.replace(/[^0-9]/g, ""))}
         disabled={disabled || state.done}
-        className="h-9 max-w-[64px] text-center"
+        className="h-12 w-full max-w-[80px] text-center text-lg font-semibold tabular-nums"
       />
       <Input
         inputMode="decimal"
@@ -461,7 +500,7 @@ function SetRow({
         value={state.load}
         onChange={(e) => onChangeLoad(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
         disabled={disabled || state.done}
-        className="h-9 max-w-[88px] text-center"
+        className="h-12 w-full max-w-[104px] text-center text-lg font-semibold tabular-nums"
       />
       <button
         type="button"
@@ -469,14 +508,14 @@ function SetRow({
         disabled={disabled}
         aria-label={state.done ? "Desfazer série" : "Marcar série"}
         className={cn(
-          "ml-auto grid size-10 shrink-0 place-items-center rounded-full transition-colors",
+          "ml-auto grid size-12 shrink-0 place-items-center rounded-full transition-all active:scale-95",
           state.done
-            ? "bg-[var(--brand-primary)] text-white"
+            ? "bg-[var(--brand-primary)] text-white shadow-md shadow-[var(--brand-primary)]/30"
             : "border border-border bg-card text-muted-foreground hover:border-[var(--brand-primary)] hover:text-foreground",
           disabled && "opacity-40",
         )}
       >
-        {state.done ? <CheckIcon className="size-5" /> : <CircleIcon className="size-5" />}
+        {state.done ? <CheckIcon className="size-6" /> : <CircleIcon className="size-6" />}
       </button>
     </div>
   );

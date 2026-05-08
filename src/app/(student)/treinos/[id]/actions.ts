@@ -184,3 +184,52 @@ export async function completeWorkoutAction(
   revalidatePath("/perfil");
   return { ok: true };
 }
+
+const cancelSchema = z.object({
+  workout_log_id: z.string().uuid(),
+});
+
+/**
+ * Aborts a workout in progress: deletes the open workout_log and any
+ * exercise_logs already recorded. Without this the cancel button left
+ * "started_at without completed_at" rows behind — the runner kept
+ * showing them as "treino em aberto" forever.
+ */
+export async function cancelWorkoutAction(
+  input: z.infer<typeof cancelSchema>,
+): Promise<{ ok: boolean; error?: string }> {
+  const session = await getCurrentStudent();
+  if (!session) return { ok: false, error: "Sessão expirada." };
+
+  const parsed = cancelSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Dados inválidos." };
+
+  const supabase = await createClient();
+  const { data: log } = await supabase
+    .from("workout_logs")
+    .select("id, tenant_id, student_id, completed_at")
+    .eq("id", parsed.data.workout_log_id)
+    .maybeSingle();
+  if (!log || log.tenant_id !== session.tenant.id || log.student_id !== session.profile.id) {
+    return { ok: false, error: "Sem permissão." };
+  }
+  if (log.completed_at) {
+    return { ok: false, error: "Esse treino já foi concluído." };
+  }
+
+  // exercise_logs FK has ON DELETE CASCADE, so deleting the log nukes
+  // any sets the user already marked. That's the desired UX: cancel
+  // means "throw it all away".
+  const { error } = await supabase
+    .from("workout_logs")
+    .delete()
+    .eq("id", parsed.data.workout_log_id);
+  if (error) {
+    console.error("[treinos.cancel]", error);
+    return { ok: false, error: "Não consegui cancelar." };
+  }
+
+  revalidatePath("/home");
+  revalidatePath("/treinos");
+  return { ok: true };
+}

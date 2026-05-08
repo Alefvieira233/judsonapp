@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { VideoEmbed } from "@/components/video-embed";
 import { cn } from "@/lib/utils";
 
 import {
@@ -28,6 +29,7 @@ export type FeedPost = {
   id: string;
   content: string;
   media_url: string | null;
+  media_type: string | null;
   pinned: boolean;
   published_at: string | null;
   author: { full_name: string } | null;
@@ -35,6 +37,27 @@ export type FeedPost = {
   i_liked: boolean;
   comments: FeedComment[];
 };
+
+function isImageUrl(url: string): boolean {
+  return /\.(jpg|jpeg|png|webp|gif|avif)(\?|$)/i.test(url);
+}
+
+function isVideoEmbedUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    return (
+      host === "youtube.com" ||
+      host === "m.youtube.com" ||
+      host === "youtu.be" ||
+      host === "instagram.com" ||
+      host === "vimeo.com" ||
+      /\.(mp4|webm|mov)(\?|$)/i.test(u.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
@@ -138,14 +161,28 @@ export function FeedPostCard({ post }: { post: FeedPost }) {
       </p>
 
       {post.media_url ? (
-        <a
-          href={post.media_url}
-          target="_blank"
-          rel="noreferrer"
-          className="truncate text-xs text-[var(--brand-primary)] hover:underline"
-        >
-          {post.media_url}
-        </a>
+        post.media_type === "image" || isImageUrl(post.media_url) ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={post.media_url}
+            alt=""
+            className="max-h-[480px] w-full rounded-xl border border-border object-cover"
+            loading="lazy"
+          />
+        ) : post.media_type === "video" || isVideoEmbedUrl(post.media_url) ? (
+          <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-black">
+            <VideoEmbed url={post.media_url} />
+          </div>
+        ) : (
+          <a
+            href={post.media_url}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="truncate text-xs text-[var(--brand-primary)] hover:underline"
+          >
+            {post.media_url}
+          </a>
+        )
       ) : null}
 
       <footer className="flex items-center justify-between gap-2 border-t border-border pt-3">

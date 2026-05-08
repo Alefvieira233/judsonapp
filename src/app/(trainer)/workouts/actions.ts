@@ -227,22 +227,61 @@ export async function saveWorkoutItemsAction(
 
   if (!workout) return { error: "Treino não encontrado." };
 
-  // Replace strategy: delete existing items then insert the new ordered list.
-  // Cheapest correct approach for MVP scale (typically <30 items per workout).
-  const { error: deleteError } = await supabase
+  // Stable-ID upsert strategy:
+  //   1. Diff incoming items vs existing by id.
+  //   2. INSERT new items (no id supplied or unknown id).
+  //   3. UPDATE existing ones (preserves id → keeps last_load lookups
+  //      working in runner.tsx; exercise_logs.workout_item_id stays valid).
+  //   4. DELETE rows whose id is no longer in the payload.
+  // Replaces the old delete-all+insert that wiped exercise_log references
+  // every time a personal edited a workout.
+  const { data: existing } = await supabase
     .from("workout_items")
-    .delete()
+    .select("id")
     .eq("workout_id", parsed.data.workout_id);
 
-  if (deleteError) {
-    console.error("[workouts.items.delete]", deleteError);
-    return { error: "Não consegui salvar. Tenta de novo." };
+  const existingIds = new Set((existing ?? []).map((r) => r.id));
+  const incomingIds = new Set(
+    parsed.data.items
+      .map((it) => it.id)
+      .filter((id): id is string => !!id && existingIds.has(id)),
+  );
+
+  const toInsert = parsed.data.items
+    .map((it, idx) => ({ it, idx }))
+    .filter(({ it }) => !it.id || !existingIds.has(it.id))
+    .map(({ it, idx }) => ({
+      workout_id: parsed.data.workout_id,
+      exercise_id: it.exercise_id,
+      position: idx,
+      sets: it.sets,
+      reps: it.reps,
+      rest_seconds: it.rest_seconds,
+      load_suggestion: it.load_suggestion,
+      notes: it.notes,
+    }));
+
+  const toUpdate = parsed.data.items
+    .map((it, idx) => ({ it, idx }))
+    .filter(({ it }) => it.id && existingIds.has(it.id));
+
+  const toDelete = [...existingIds].filter((id) => !incomingIds.has(id));
+
+  if (toDelete.length > 0) {
+    const { error: delError } = await supabase
+      .from("workout_items")
+      .delete()
+      .in("id", toDelete);
+    if (delError) {
+      console.error("[workouts.items.delete]", delError);
+      return { error: "Não consegui salvar. Tenta de novo." };
+    }
   }
 
-  if (parsed.data.items.length > 0) {
-    const { error: insertError } = await supabase.from("workout_items").insert(
-      parsed.data.items.map((it, idx) => ({
-        workout_id: parsed.data.workout_id,
+  for (const { it, idx } of toUpdate) {
+    const { error: updError } = await supabase
+      .from("workout_items")
+      .update({
         exercise_id: it.exercise_id,
         position: idx,
         sets: it.sets,
@@ -250,11 +289,20 @@ export async function saveWorkoutItemsAction(
         rest_seconds: it.rest_seconds,
         load_suggestion: it.load_suggestion,
         notes: it.notes,
-      })),
-    );
+      })
+      .eq("id", it.id!);
+    if (updError) {
+      console.error("[workouts.items.update]", updError);
+      return { error: "Não consegui salvar. Tenta de novo." };
+    }
+  }
 
-    if (insertError) {
-      console.error("[workouts.items.insert]", insertError);
+  if (toInsert.length > 0) {
+    const { error: insError } = await supabase
+      .from("workout_items")
+      .insert(toInsert);
+    if (insError) {
+      console.error("[workouts.items.insert]", insError);
       return { error: "Não consegui salvar. Tenta de novo." };
     }
   }

@@ -59,8 +59,20 @@ export default async function DashboardPage() {
   const now = new Date();
   const weekStart = new Date(startOfDay(now).getTime() - 6 * 86_400_000);
 
-  const [studentsRes, planSubscribersRes, weekLogsRes, postsRes, recentLogsRes] =
-    await Promise.all([
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 86_400_000);
+
+  type ActiveStudent = { id: string; full_name: string };
+  type StudentLog = { student_id: string | null; completed_at: string | null };
+
+  const [
+    studentsRes,
+    planSubscribersRes,
+    weekLogsRes,
+    postsRes,
+    recentLogsRes,
+    activeStudentsRes,
+    studentLogsRes,
+  ] = await Promise.all([
       supabase
         .from("profiles")
         .select("id", { count: "exact", head: true })
@@ -95,6 +107,22 @@ export default async function DashboardPage() {
         .order("completed_at", { ascending: false })
         .limit(6)
         .returns<RecentLog[]>(),
+      supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("tenant_id", tenant.id)
+        .eq("role", "student")
+        .eq("active", true)
+        .order("full_name")
+        .returns<ActiveStudent[]>(),
+      supabase
+        .from("workout_logs")
+        .select("student_id, completed_at")
+        .eq("tenant_id", tenant.id)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(2000)
+        .returns<StudentLog[]>(),
     ]);
 
   const studentsCount = studentsRes.count ?? 0;
@@ -102,6 +130,31 @@ export default async function DashboardPage() {
   const weekLogs = weekLogsRes.count ?? 0;
   const postsCount = postsRes.count ?? 0;
   const recent = recentLogsRes.data ?? [];
+
+  // Compute "alunas em risco": active student whose most recent completed
+  // workout is older than 7 days OR who never trained at all.
+  const activeStudents = activeStudentsRes.data ?? [];
+  const lastByStudent = new Map<string, Date>();
+  for (const log of studentLogsRes.data ?? []) {
+    if (!log.student_id || !log.completed_at) continue;
+    const t = new Date(log.completed_at);
+    const prev = lastByStudent.get(log.student_id);
+    if (!prev || t > prev) lastByStudent.set(log.student_id, t);
+  }
+  const atRisk = activeStudents
+    .map((s) => ({
+      id: s.id,
+      name: s.full_name,
+      lastTrained: lastByStudent.get(s.id) ?? null,
+    }))
+    .filter(({ lastTrained }) => !lastTrained || lastTrained < sevenDaysAgo)
+    .sort((a, b) => {
+      // Never-trained first, then oldest last-train.
+      const aT = a.lastTrained?.getTime() ?? 0;
+      const bT = b.lastTrained?.getTime() ?? 0;
+      return aT - bT;
+    });
+  const atRiskCount = atRisk.length;
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-8 md:gap-10 md:px-6 md:py-12">
@@ -162,11 +215,50 @@ export default async function DashboardPage() {
         />
         <KpiCard
           icon={<MessageCircleIcon className="size-5" />}
-          label="Posts publicados"
-          value={postsCount.toString()}
-          accent="muted"
+          label={atRiskCount > 0 ? "Em risco (>7d)" : "Posts publicados"}
+          value={(atRiskCount > 0 ? atRiskCount : postsCount).toString()}
+          accent={atRiskCount > 0 ? "primary" : "muted"}
         />
       </section>
+
+      {atRiskCount > 0 ? (
+        <section className="flex flex-col gap-3 rounded-2xl border border-[var(--brand-primary)]/30 bg-gradient-to-br from-[var(--brand-primary)]/10 via-card/40 to-card/40 p-5">
+          <header className="flex items-center justify-between gap-3">
+            <h2 className="flex items-center gap-2 font-display text-2xl">
+              <ActivityIcon className="size-5 text-[var(--brand-primary)]" />
+              Alunas em risco
+            </h2>
+            <span className="text-xs text-muted-foreground">
+              {atRiskCount} sem treinar há mais de 7 dias
+            </span>
+          </header>
+          <ul className="flex flex-col gap-1.5">
+            {atRisk.slice(0, 6).map((s) => {
+              const days = s.lastTrained
+                ? Math.floor((now.getTime() - s.lastTrained.getTime()) / 86_400_000)
+                : null;
+              return (
+                <li key={s.id}>
+                  <Link
+                    href={`/students/${s.id}`}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-border bg-background/40 px-3 py-2.5 transition-colors hover:bg-card/60"
+                  >
+                    <span className="truncate text-sm font-medium">{s.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {days === null ? "nunca treinou" : `há ${days} dias`}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+          {atRiskCount > 6 ? (
+            <p className="text-xs text-muted-foreground">
+              + {atRiskCount - 6} aluna{atRiskCount - 6 === 1 ? "" : "s"} a mais.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="grid gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card/40 p-5 lg:col-span-2">
